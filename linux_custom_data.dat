@@ -1,0 +1,4 @@
+#!/bin/bash
+
+# custom shell script
+printf 'Executing custom shell script...\n'

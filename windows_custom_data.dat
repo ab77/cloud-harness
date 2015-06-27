@@ -1,0 +1,2 @@
+# custom PowerShell script
+Write-Host "Executing custom PowerShell script..."
