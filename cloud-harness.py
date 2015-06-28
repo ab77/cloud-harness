@@ -6,11 +6,11 @@ Version: 0.1
 Author: Anton Belodedenko (anton@blinkbox.com)
 Date: 16/06/2015
 Name: Cloud Harness
-Git: [cloud-harness](https://github.com/ab77/cloud-harness)
+Git: https://github.com/ab77/cloud-harness
 
 Synopsis:
-Wrapper for various cloud service provider APIs/SDKs, currently supports the following providers:
-- Azure Service Management via [Microsoft Azure Python SDK](https://github.com/Azure/azure-sdk-for-python)
+Python wrapper for cloud service provider APIs/SDKs, supporting:
+- Azure Service Management using [Microsoft Azure Python SDK/API](https://github.com/Azure/azure-sdk-for-python)
 '''
 
 import time, sys, os, argparse, logging, json, pprint, ConfigParser, hashlib, string, inspect
@@ -71,6 +71,7 @@ def args():
     azure.add_argument('--ssh_auth', action='store_true', required=False, help='Linux SSH key authentication')
     azure.add_argument('--readonly', action='store_true', required=False, help='limit to read-only operations')
     azure.add_argument('--ssh_public_key_cert', type=str, nargs=1, required=False, default=[AzureCloudClass.default_ssh_public_key_cert], help='Linux SSH certificate with public key path (default %s)' % AzureCloudClass.default_ssh_public_key_cert)
+    azure.add_argument('--custom_data_file', type=str, nargs=1, required=False, help='custom data file')
     azure.add_argument('--algorithm', type=str, nargs=1, default=[AzureCloudClass.default_algorithm], required=False, help='Thumprint algorithm (default %s)' % AzureCloudClass.default_algorithm)
     azure.add_argument('--os', type=str, nargs=1, required=False, choices=['Windows', 'Linux'], help='OS type')
     azure.add_argument('--availset', type=str, nargs=1, required=False, help='availability set name')
@@ -130,11 +131,13 @@ class BaseCloudHarnessClass():
         default_linux_customscript_name = dict(cp.items('CustomScriptExtensionForLinux'))['default_linux_customscript_name']
         default_remote_subnets = cp.items('DefaultEndpointACL')
         default_ssh_public_key_cert = dict(cp.items('LinuxConfiguration'))['default_ssh_public_key_cert']       
-        default_ssh_public_key = dict(cp.items('LinuxConfiguration'))['default_ssh_public_key']       
+        default_ssh_public_key = dict(cp.items('LinuxConfiguration'))['default_ssh_public_key']
+        default_linux_custom_data_file = dict(cp.items('LinuxConfiguration'))['default_linux_custom_data_file']
+        default_windows_custom_data_file = dict(cp.items('WindowsConfiguration'))['default_windows_custom_data_file']
         default_storage_account = dict(cp.items('AzureConfig'))['default_storage_account']
         default_storage_container = dict(cp.items('AzureConfig'))['default_storage_container']
         default_patching_healthy_test_script = dict(cp.items('OSPatchingExtensionForLinux'))['default_patching_healthy_test_script']        
-        default_patching_idle_test_script = dict(cp.items('OSPatchingExtensionForLinux'))['default_patching_idle_test_script']        
+        default_patching_idle_test_script = dict(cp.items('OSPatchingExtensionForLinux'))['default_patching_idle_test_script']
     except (KeyError, ConfigParser.NoSectionError):
         default_chef_server_url = None
         default_chef_validation_client_name = None
@@ -153,6 +156,8 @@ class BaseCloudHarnessClass():
         default_chef_ssl_verify_mode = None
         default_patching_healthy_test_script = None
         default_patching_idle_test_script = None
+        default_linux_custom_data_file = None
+        default_windows_custom_data_file = None
         pass
     
 class AzureCloudClass(BaseCloudHarnessClass):
@@ -262,8 +267,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
     default_size = 'Medium'
     default_user_name = 'azureuser'
     default_status = 'Succeeded'
-    default_wait = 10
-    default_timeout = 180    
+    default_wait = 15
+    default_timeout = 300    
     default_endpoints = {'Windows': [{'LocalPort': '5985',
                                       'Name': 'WinRM',
                                       'Port': str(randint(49152,65535)),
@@ -322,36 +327,54 @@ class AzureCloudClass(BaseCloudHarnessClass):
                  password=None, disable_pwd_auth=None, ssh_auth=None,
                  image=None, subnet=None, account=None,
                  ssh_public_key_cert=None, eps=None, async=None,
-                 custom_data=None):
+                 custom_data_file=None, readonly=None):
         try:
-            if deployment and service and label and os and name and image and subnet and account:            
-                self.deployment = deployment
-                self.service = service                
-                self.label = label
-                self.os = os
-                self.availset = availset
-                self.name = name
-                self.image = image
-                self.subnet = subnet
-                self.account = account
-                self.custom_data = custom_data
+            self.deployment = (deployment if deployment else self.deployment)
+            self.service = (service if service else self.service)           
+            self.label = (label if label else self.label)
+            self.os = (os if os else self.os)
+            self.name = (name if name else self.name)
+            self.image = (image if image else self.image)
+            self.account = (account if account else self.account)
+            self.subnet = (subnet if subnet else self.subnet)
+            if self.deployment and self.service and self.os and self.name and self.image and self.subnet and self.account:
+                if not self.label: self.label = self.name
+                self.availset = (availset if availset else self.availset)
                 self.async = async
                 self.disable_pwd_auth = disable_pwd_auth
                 self.ssh_auth = ssh_auth
+                self.readonly = readonly
                 self.password = password
                 if not self.password: self.password = ''.join(SystemRandom().choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(11))
-                self.slot = slot                
-                if not self.slot: self.slot = self.default_deployment_slot
-                self.size = size
-                if not self.size: self.size = self.default_size
-                self.username = username
-                if not self.username: self.username = self.default_user_name               
-                self.eps = eps
-                if not self.eps: self.eps = self.default_endpoints
+                self.slot = (slot if slot else self.default_deployment_slot)
+                self.size = (size if size else self.default_size)
+                self.username = (username if username else self.default_user_name  )             
+                self.eps = (eps if eps else self.default_endpoints)
                 self.rextrs = (rextrs if rextrs else None)
-                self.ssh_public_key_cert = ssh_public_key_cert
-                if not self.ssh_public_key_cert: self.ssh_public_key_cert = self.default_ssh_public_key_cert
+                self.ssh_public_key_cert = (ssh_public_key_cert if ssh_public_key_cert else self.default_ssh_public_key_cert)
 
+                if self.os == 'Windows':
+                    self.custom_data_file = (custom_data_file if custom_data_file else self.default_windows_custom_data_file)
+                    try:
+                        self.custom_data = None                                                    
+                        with open(self.custom_data_file, 'rb') as cf:
+                            self.custom_data = b64encode(cf.read())
+                    except IOError:
+                        logger('%s: unable to read %s' % (inspect.stack()[0][3],
+                                                          self.custom_data_file))
+                        pass
+
+                if self.os == 'Linux':
+                    self.custom_data_file = (custom_data_file if custom_data_file else self.default_linux_custom_data_file)                                                  
+                    try:
+                        self.custom_data = None                                                    
+                        with open(self.custom_data_file, 'rb') as cf:
+                            self.custom_data = cf.read()
+                    except IOError:
+                        logger('%s: unable to read %s' % (inspect.stack()[0][3],
+                                                          self.custom_data_file))
+                        pass                                                                        
+        
                 net_config = ConfigurationSet()
                 net_config.configuration_set_type = 'NetworkConfiguration'
                 subnet = Subnet()
@@ -395,8 +418,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                            custom_data=self.custom_data)                    
                     if self.ssh_auth:
                         h = hashlib.sha1()
-                        with open(self.ssh_public_key_cert, 'rb') as cf:
-                            h.update(cf.read())
+                        try:
+                            with open(self.ssh_public_key_cert, 'rb') as cf:
+                                h.update(cf.read())
+                        except IOError:
+                            logger('%s: unable to read %s' % (inspect.stack()[0][3],
+                                                              self.ssh_public_key_cert))
+                            return False                        
                         ssh = SSH()
                         pks = PublicKeys()
                         pk = PublicKey()
@@ -413,7 +441,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                                        local_port=ep['LocalPort'],
                                                                        load_balanced_endpoint_set_name=None,
                                                                        enable_direct_server_return=False))
-                    
                     for endpoint in endpoints:
                         net_config.input_endpoints.input_endpoints.append(endpoint)
                     
@@ -428,26 +455,29 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                      os=None,
                                                      remote_source_image_link=None)
                 pprint.pprint(self.__dict__)
-                try:
-                    result = self.sms.add_role(self.service, self.deployment, self.name,
-                                               self.os_config, self.disk_config, network_config=self.net_config,
-                                               availability_set_name=self.availset, data_virtual_hard_disks=None, role_size=self.size,
-                                               role_type='PersistentVMRole', resource_extension_references=self.rextrs, provision_guest_agent=True,
-                                               vm_image_name=None, media_location=None)
-                    d = dict()
-                    operation = self.sms.get_operation_status(result.request_id)
-                    d['result'] = result.__dict__
-                    d['operation'] = operation.__dict__
-                    if not self.async:
-                        pprint.pprint(d)
-                        return self.wait_for_operation_status(result.request_id)
-                    else:
-                        return d
-                except (WindowsAzureConflictError) as e:
-                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
-                    return False                
+                if not self.readonly:
+                    try:
+                        result = self.sms.add_role(self.service, self.deployment, self.name,
+                                                   self.os_config, self.disk_config, network_config=self.net_config,
+                                                   availability_set_name=self.availset, data_virtual_hard_disks=None, role_size=self.size,
+                                                   role_type='PersistentVMRole', resource_extension_references=self.rextrs, provision_guest_agent=True,
+                                                   vm_image_name=None, media_location=None)
+                        d = dict()
+                        operation = self.sms.get_operation_status(result.request_id)
+                        d['result'] = result.__dict__
+                        d['operation'] = operation.__dict__
+                        if not self.async:
+                            pprint.pprint(d)
+                            return self.wait_for_operation_status(result.request_id)
+                        else:
+                            return d
+                    except (WindowsAzureConflictError) as e:
+                        logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                        return False
+                else:
+                    logger('%s: limited to read-only operations' % inspect.stack()[0][3])
             else:
-                logger('add_role() requires deployment, service, label, os, name, password, image, subnet and account names, None specified')
+                logger('not all required parameters present for %s' % inspect.stack()[0][3])
                 sys.exit(1)
         except Exception as e:
             logger(message=repr(e))
@@ -2080,7 +2110,8 @@ if __name__ == '__main__':
                                                                       subnet=(arg.subnet[0] if arg.subnet else None),
                                                                       account=(arg.account[0] if arg.account else None),
                                                                       async=arg.async,
-                                                                      readonly=arg.readonly))
+                                                                      readonly=arg.readonly,
+                                                                      custom_data_file=(arg.custom_data_file[0] if arg.custom_data_file else None)))
         elif arg.action[0] in ['get_storage_account_properties']: pprint.pprint(az.get_storage_account_properties(account=(arg.account[0] if arg.account else None)))
         elif arg.action[0] in ['get_deployment_by_slot']: pprint.pprint(az.get_deployment_by_slot(service=(arg.service[0] if arg.service else None),
                                                                                                   slot=(arg.slot[0] if arg.slot else None)))
