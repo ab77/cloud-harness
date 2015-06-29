@@ -259,6 +259,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
                'add_vmaccess_extension',
                'add_ospatching_extension']
 
+    mandatory_params = {'list_service_certificates' : ['service'],
+                        'add_role': ['deployment', 'service', 'os', 'name', 'image', 'subnet', 'account'],
+                        'update_role': ['deployment', 'service', 'name']}
+    
     default_end_date = datetime.now()
     default_start_date = default_end_date - timedelta(days=7)
     default_publisher = 'Microsoft.Compute'
@@ -267,6 +271,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
     default_size = 'Medium'
     default_user_name = 'azureuser'
     default_status = 'Succeeded'
+    default_async = False
+    default_readonly = False
+    default_disable_pwd_auth = False
+    default_ssh_auth = False
     default_wait = 15
     default_timeout = 300    
     default_endpoints = {'Windows': [{'LocalPort': '5985',
@@ -320,197 +328,206 @@ class AzureCloudClass(BaseCloudHarnessClass):
             sys.exit(1)
         else:
             self.sms = ServiceManagementService(self.subscription_id, self.certificate_path, request_session=self.set_proxy())
-    
-    def add_role(self, deployment=None, service=None, slot=None,
-                 label=None, size=None, os=None, availset=None,
-                 rextrs=None, name=None, username=None,
-                 password=None, disable_pwd_auth=None, ssh_auth=None,
-                 image=None, subnet=None, account=None,
-                 ssh_public_key_cert=None, eps=None, async=None,
-                 custom_data_file=None, readonly=None):
-        try:
-            self.deployment = (deployment if deployment else self.deployment)
-            self.service = (service if service else self.service)           
-            self.label = (label if label else self.label)
-            self.os = (os if os else self.os)
-            self.name = (name if name else self.name)
-            self.image = (image if image else self.image)
-            self.account = (account if account else self.account)
-            self.subnet = (subnet if subnet else self.subnet)
-            if self.deployment and self.service and self.os and self.name and self.image and self.subnet and self.account:
-                if not self.label: self.label = self.name
-                self.availset = (availset if availset else self.availset)
-                self.async = async
-                self.disable_pwd_auth = disable_pwd_auth
-                self.ssh_auth = ssh_auth
-                self.readonly = readonly
-                self.password = password
-                if not self.password: self.password = ''.join(SystemRandom().choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(11))
-                self.slot = (slot if slot else self.default_deployment_slot)
-                self.size = (size if size else self.default_size)
-                self.username = (username if username else self.default_user_name  )             
-                self.eps = (eps if eps else self.default_endpoints)
-                self.rextrs = (rextrs if rextrs else None)
-                self.ssh_public_key_cert = (ssh_public_key_cert if ssh_public_key_cert else self.default_ssh_public_key_cert)
 
-                if self.os == 'Windows':
-                    self.custom_data_file = (custom_data_file if custom_data_file else self.default_windows_custom_data_file)
-                    try:
-                        self.custom_data = None                                                    
-                        with open(self.custom_data_file, 'rb') as cf:
-                            self.custom_data = b64encode(cf.read())
-                    except IOError:
-                        logger('%s: unable to read %s' % (inspect.stack()[0][3],
-                                                          self.custom_data_file))
-                        pass
-
-                if self.os == 'Linux':
-                    self.custom_data_file = (custom_data_file if custom_data_file else self.default_linux_custom_data_file)                                                  
-                    try:
-                        self.custom_data = None                                                    
-                        with open(self.custom_data_file, 'rb') as cf:
-                            self.custom_data = cf.read()
-                    except IOError:
-                        logger('%s: unable to read %s' % (inspect.stack()[0][3],
-                                                          self.custom_data_file))
-                        pass                                                                        
+    def get_optional_params(self, **kwargs):
+        key = kwargs['key']
+        keys = kwargs['params'].keys()
+        default = kwargs['default']
+        if key in keys and kwargs['params'][key] is not None:
+            return kwargs['params'][kwargs['key']]
+        else:
+            return default
         
-                net_config = ConfigurationSet()
-                net_config.configuration_set_type = 'NetworkConfiguration'
-                subnet = Subnet()
-                subnet.name = self.subnet           
-                subnets = Subnets()
-                subnets.subnets.append(subnet.name)
-                net_config.subnet_names = subnets
-               
-                endpoints = []                        
-                if self.os in ['Windows']:
-                    self.os_config = WindowsConfigurationSet(computer_name=self.name,
-                                                             admin_password=self.password,
-                                                             reset_password_on_first_logon=None,
-                                                             enable_automatic_updates=None,
-                                                             time_zone=None,
-                                                             admin_username=self.username,
-                                                             custom_data=self.custom_data)
-                    self.os_config.domain_join = None
-                    self.os_config.win_rm = None
-
-                    for ep in self.eps[self.os]:
-                        endpoints.append(ConfigurationSetInputEndpoint(name=ep['Name'],
-                                                                       protocol=ep['Protocol'],
-                                                                       port=ep['Port'],
-                                                                       local_port=ep['LocalPort'],
-                                                                       load_balanced_endpoint_set_name=None,
-                                                                       enable_direct_server_return=False))                    
-                    for endpoint in endpoints:
-                        net_config.input_endpoints.input_endpoints.append(endpoint)
-
-                endpoints = []                
-                if self.os in ['Linux']:
-                    if self.disable_pwd_auth:
-                        self.password = None
-                        self.ssh_auth = True
-                        
-                    self.os_config = LinuxConfigurationSet(host_name=self.name,
-                                                           user_name=self.username,
-                                                           user_password=self.password,
-                                                           disable_ssh_password_authentication=self.ssh_auth,
-                                                           custom_data=self.custom_data)                    
-                    if self.ssh_auth:
-                        h = hashlib.sha1()
-                        try:
-                            with open(self.ssh_public_key_cert, 'rb') as cf:
-                                h.update(cf.read())
-                        except IOError:
-                            logger('%s: unable to read %s' % (inspect.stack()[0][3],
-                                                              self.ssh_public_key_cert))
-                            return False                        
-                        ssh = SSH()
-                        pks = PublicKeys()
-                        pk = PublicKey()
-                        pk.path = '/home/%s/.ssh/authorized_keys' % self.username
-                        pk.fingerprint = h.hexdigest().upper()
-                        pks.public_keys.append(pk)
-                        ssh.public_keys = pks
-                        self.os_config.ssh = ssh
-
-                    for ep in self.eps[self.os]:
-                        endpoints.append(ConfigurationSetInputEndpoint(name=ep['Name'],
-                                                                       protocol=ep['Protocol'],
-                                                                       port=ep['Port'],
-                                                                       local_port=ep['LocalPort'],
-                                                                       load_balanced_endpoint_set_name=None,
-                                                                       enable_direct_server_return=False))
-                    for endpoint in endpoints:
-                        net_config.input_endpoints.input_endpoints.append(endpoint)
-                    
-                self.net_config = net_config            
-                ts = mkdate(datetime.now(), '%Y-%m-%d-%H-%M-%S-%f')            
-                self.media_link = 'https://%s.blob.core.windows.net/vhds/%s-%s-%s-0.vhd' % (self.account, self.name, self.service, ts)
-                self.disk_config = OSVirtualHardDisk(source_image_name=self.image,
-                                                     media_link=self.media_link,
-                                                     host_caching=None,
-                                                     disk_label=None,
-                                                     disk_name=None,
-                                                     os=None,
-                                                     remote_source_image_link=None)
-                pprint.pprint(self.__dict__)
-                if not self.readonly:
-                    try:
-                        result = self.sms.add_role(self.service, self.deployment, self.name,
-                                                   self.os_config, self.disk_config, network_config=self.net_config,
-                                                   availability_set_name=self.availset, data_virtual_hard_disks=None, role_size=self.size,
-                                                   role_type='PersistentVMRole', resource_extension_references=self.rextrs, provision_guest_agent=True,
-                                                   vm_image_name=None, media_location=None)
-                        d = dict()
-                        operation = self.sms.get_operation_status(result.request_id)
-                        d['result'] = result.__dict__
-                        d['operation'] = operation.__dict__
-                        if not self.async:
-                            pprint.pprint(d)
-                            return self.wait_for_operation_status(result.request_id)
-                        else:
-                            return d
-                    except (WindowsAzureConflictError) as e:
-                        logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
-                        return False
-                else:
-                    logger('%s: limited to read-only operations' % inspect.stack()[0][3])
-            else:
-                logger('not all required parameters present for %s' % inspect.stack()[0][3])
-                sys.exit(1)
-        except Exception as e:
-            logger(message=repr(e))
-            return False
-
-    def add_data_disk(self):
-        pass
-    
-    def add_disk(self):
-        pass
-    
-    def add_dns_server(self, service=None, deployment=None, name=None, ipaddr=None):
+    def verify_mandatory_params(self, **kwargs):
+        for param in self.mandatory_params[kwargs['method']]:            
+            if param not in kwargs['params'].keys() or kwargs['params'][param] is None:
+                logger('%s: not all required parameters %s validated, %s' % (kwargs['method'],
+                                                                             self.mandatory_params[kwargs['method']],
+                                                                             kwargs['params']))
+                return False
+        return True
+            
+    def add_role(self, **kwargs):
         try:
-            if service and deployment and name and ipaddr:
-                self.service = service
-                self.deployment = deployment
-                self.name = name
-                self.ipaddr = ipaddr
-                result = self.sms.add_dns_server(self.service, self.deployment, self.name, self.ipaddr)        
-                if result is not None:
+            if not self.verify_mandatory_params(method='add_role', params=kwargs):
+                return False
+            
+            self.service = kwargs['service']
+            self.deployment = kwargs['deployment']     
+            self.label = kwargs['label']
+            self.os = kwargs['os']
+            self.name = kwargs['name']
+            self.image = kwargs['image']
+            self.account = kwargs['account']
+            self.subnet = kwargs['subnet']
+            self.label = kwargs['label'] if 'label' in kwargs.keys() else self.label
+            if not self.label: self.label = self.name
+            self.availset = self.get_optional_params(key='availset', params=kwargs, default=None)
+            self.password = self.get_optional_params(key='password', params=kwargs, default=''.join(SystemRandom().choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(11)))
+            self.slot = self.get_optional_params(key='slot', params=kwargs, default=self.default_deployment_slot)            
+            self.size = self.get_optional_params(key='size', params=kwargs, default=self.default_size)
+            self.username = self.get_optional_params(key='username', params=kwargs, default=self.default_user_name)        
+            self.eps = self.get_optional_params(key='eps', params=kwargs, default=self.default_endpoints)
+            self.rextrs = self.get_optional_params(key='rextrs', params=kwargs, default=None)
+            self.ssh_public_key_cert = self.get_optional_params(key='ssh_public_key_cert', params=kwargs, default=self.default_ssh_public_key_cert)
+            self.async = self.get_optional_params(key='async', params=kwargs, default=self.default_async)
+            self.readonly = self.get_optional_params(key='readonly', params=kwargs, default=self.default_readonly)                
+            self.ssh_auth = self.get_optional_params(key='ssh_auth', params=kwargs, default=self.default_ssh_auth)                
+            self.disable_pwd_auth = self.get_optional_params(key='disable_pwd_auth', params=kwargs, default=self.default_disable_pwd_auth)                
+ 
+            if self.os == 'Windows':
+                self.custom_data_file = self.get_optional_params(key='custom_data_file', params=kwargs, default=self.default_windows_custom_data_file)
+                try:
+                    self.custom_data = None                                                    
+                    with open(self.custom_data_file, 'rb') as cf:
+                        self.custom_data = b64encode(cf.read())
+                except IOError:
+                    logger('%s: unable to read %s' % (inspect.stack()[0][3], self.custom_data_file))
+                    pass
+
+            if self.os == 'Linux':
+                self.custom_data_file = self.get_optional_params(key='custom_data_file', params=kwargs, default=self.default_linux_custom_data_file)
+                try:
+                    self.custom_data = None                                                    
+                    with open(self.custom_data_file, 'rb') as cf:
+                        self.custom_data = cf.read()
+                except IOError:
+                    logger('%s: unable to read %s' % (inspect.stack()[0][3], self.custom_data_file))
+                    pass                                                                        
+
+            net_config = ConfigurationSet()
+            net_config.configuration_set_type = 'NetworkConfiguration'
+            subnet = Subnet()
+            subnet.name = self.subnet           
+            subnets = Subnets()
+            subnets.subnets.append(subnet.name)
+            net_config.subnet_names = subnets
+           
+            endpoints = []                        
+            if self.os in ['Windows']:
+                self.os_config = WindowsConfigurationSet(computer_name=self.name,
+                                                         admin_password=self.password,
+                                                         reset_password_on_first_logon=None,
+                                                         enable_automatic_updates=None,
+                                                         time_zone=None,
+                                                         admin_username=self.username,
+                                                         custom_data=self.custom_data)
+                self.os_config.domain_join = None
+                self.os_config.win_rm = None
+
+                for ep in self.eps[self.os]:
+                    endpoints.append(ConfigurationSetInputEndpoint(name=ep['Name'],
+                                                                   protocol=ep['Protocol'],
+                                                                   port=ep['Port'],
+                                                                   local_port=ep['LocalPort'],
+                                                                   load_balanced_endpoint_set_name=None,
+                                                                   enable_direct_server_return=False))                    
+                for endpoint in endpoints:
+                    net_config.input_endpoints.input_endpoints.append(endpoint)
+
+            endpoints = []                
+            if self.os in ['Linux']:
+                if self.disable_pwd_auth:
+                    self.password = None
+                    self.ssh_auth = True
+                    
+                self.os_config = LinuxConfigurationSet(host_name=self.name,
+                                                       user_name=self.username,
+                                                       user_password=self.password,
+                                                       disable_ssh_password_authentication=self.ssh_auth,
+                                                       custom_data=self.custom_data)                    
+                if self.ssh_auth:
+                    h = hashlib.sha1()
+                    try:
+                        with open(self.ssh_public_key_cert, 'rb') as cf:
+                            h.update(cf.read())
+                    except IOError:
+                        logger('%s: unable to read %s' % (inspect.stack()[0][3],
+                                                          self.ssh_public_key_cert))
+                        return False                        
+                    ssh = SSH()
+                    pks = PublicKeys()
+                    pk = PublicKey()
+                    pk.path = '/home/%s/.ssh/authorized_keys' % self.username
+                    pk.fingerprint = h.hexdigest().upper()
+                    pks.public_keys.append(pk)
+                    ssh.public_keys = pks
+                    self.os_config.ssh = ssh
+
+                for ep in self.eps[self.os]:
+                    endpoints.append(ConfigurationSetInputEndpoint(name=ep['Name'],
+                                                                   protocol=ep['Protocol'],
+                                                                   port=ep['Port'],
+                                                                   local_port=ep['LocalPort'],
+                                                                   load_balanced_endpoint_set_name=None,
+                                                                   enable_direct_server_return=False))
+                for endpoint in endpoints:
+                    net_config.input_endpoints.input_endpoints.append(endpoint)
+                
+            self.net_config = net_config            
+            ts = mkdate(datetime.now(), '%Y-%m-%d-%H-%M-%S-%f')            
+            self.media_link = 'https://%s.blob.core.windows.net/vhds/%s-%s-%s-0.vhd' % (self.account, self.name, self.service, ts)
+            self.disk_config = OSVirtualHardDisk(source_image_name=self.image,
+                                                 media_link=self.media_link,
+                                                 host_caching=None,
+                                                 disk_label=None,
+                                                 disk_name=None,
+                                                 os=None,
+                                                 remote_source_image_link=None)
+            pprint.pprint(self.__dict__)
+            if not self.readonly:
+                try:
+                    result = self.sms.add_role(self.service, self.deployment, self.name,
+                                               self.os_config, self.disk_config, network_config=self.net_config,
+                                               availability_set_name=self.availset, data_virtual_hard_disks=None, role_size=self.size,
+                                               role_type='PersistentVMRole', resource_extension_references=self.rextrs, provision_guest_agent=True,
+                                               vm_image_name=None, media_location=None)
                     d = dict()
                     operation = self.sms.get_operation_status(result.request_id)
                     d['result'] = result.__dict__
                     d['operation'] = operation.__dict__
-                    return d
-                else:
+                    if not self.async:
+                        pprint.pprint(d)
+                        return self.wait_for_operation_status(result.request_id)
+                    else:
+                        return d
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
-               logger('add_dns_server() requires service, deployment, DNS server names and IP address, None specified') 
-               sys.exit(1)
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
         except Exception as e:
             logger(message=repr(e))
             return False
+
+        def add_data_disk(self):
+            pass
+        
+        def add_disk(self):
+            pass
+        
+        def add_dns_server(self, service=None, deployment=None, name=None, ipaddr=None):
+            try:
+                if service and deployment and name and ipaddr:
+                    self.service = service
+                    self.deployment = deployment
+                    self.name = name
+                    self.ipaddr = ipaddr
+                    result = self.sms.add_dns_server(self.service, self.deployment, self.name, self.ipaddr)        
+                    if result is not None:
+                        d = dict()
+                        operation = self.sms.get_operation_status(result.request_id)
+                        d['result'] = result.__dict__
+                        d['operation'] = operation.__dict__
+                        return d
+                    else:
+                        return False
+                else:
+                   logger('add_dns_server() requires service, deployment, DNS server names and IP address, None specified') 
+                   sys.exit(1)
+            except Exception as e:
+                logger(message=repr(e))
+                return False
     
     def add_management_certificate(self):
         pass
@@ -685,7 +702,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     for rext in rexts:
                         version = rext['version']                
                     self.version = version.split('.')[0] + '.*'
-                    pub_config['commandToExecute'] = 'powershell -ExecutionPolicy Unrestricted -file %s' % self.script
+                    pub_config['commandToExecute'] = 'powershell.exe -ExecutionPolicy Unrestricted -File %s' % self.script
                     pub_config['timestamp'] = '%s' % timegm(time.gmtime())                    
                     rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
                                                               pub_config_key=pub_config_key, pub_config=pub_config)
@@ -1460,10 +1477,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
             d = size.__dict__
             l.append(d)      
         return l
-    
-    def list_service_certificates(self, service=None):
-        if service:
-            self.service = service
+       
+    def list_service_certificates(self, **kwargs):
+        if self.verify_mandatory_params(method='list_service_certificates', params=kwargs):           
+            self.service = kwargs['service']
             certificates = self.sms.list_service_certificates(self.service)
             l = []
             for certificate in certificates:
@@ -1471,8 +1488,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 l.append(d)      
             return l
         else:
-            logger('list_service_certificates() requires a service name, None specified')
-    
+            return None
+
     def list_storage_accounts(self):
         accounts = self.sms.list_storage_accounts()
         l = []
@@ -1875,77 +1892,70 @@ class AzureCloudClass(BaseCloudHarnessClass):
         except Exception as e:
             logger(message=repr(e))
             return None
-        
-    def update_role(self, deployment=None, service=None,
-                    size=None, availset=None, rextrs=None,
-                    name=None, subnet=None, eps=None,
-                    os_disk=None, data_disk=None, async=None,
-                    readonly=None):
+
+    def update_role(self, **kwargs):
         try:
-            self.deployment = deployment
-            self.service = service                
-            self.name = name
-            if deployment and service and name:
-                role = self.get_role(service=self.service, deployment=self.deployment, name=self.name)
-                pprint.pprint(role) 
-                if role:
-                    self.os = self.get_os_for_role(service=self.service,
-                                                   deployment=self.deployment,
-                                                   name=self.name)
-                    self.size = (size if size else role['role_size'])
-                    self.availset = (availset if availset else role['availability_set_name'])
-                    self.subnet = (subnet if subnet else role['configuration_sets'][0]['subnet_names'][0])
-                    self.eps = (eps if eps else role['configuration_sets'][0]['input_endpoints'])
-                    self.rextrs = (rextrs if rextrs else None)
-                    self.os_disk = (os_disk if os_disk else role['os_virtual_hard_disk'])
-                    self.data_disk = (os_disk if os_disk else role['data_virtual_hard_disks'])
-                else:
-                    return False
-                    
-                self.async = async
-                self.readonly = readonly
-                net_config = ConfigurationSet()
-                net_config.configuration_set_type = 'NetworkConfiguration'
-                subnet = Subnet()
-                subnet.name = self.subnet
-                subnets = Subnets()
-                subnets.subnets.append(subnet.name)
-                net_config.subnet_names = subnets
-                eps = ConfigurationSetInputEndpoints()                
-                eps = self.eps
-
-                # -- retrieve ACLs
-                # TBC
-                
-                net_config.input_endpoints = eps
-                self.net_config = net_config
-
-                pprint.pprint(self.__dict__)
-
-                if not self.readonly:
-                    try:
-                        result = self.sms.update_role(self.service, self.deployment, self.name,
-                                                      os_virtual_hard_disk=self.os_disk, network_config=self.net_config, availability_set_name=self.availset,
-                                                      data_virtual_hard_disks=self.data_disk, role_size=self.size, role_type='PersistentVMRole',
-                                                      resource_extension_references=self.rextrs, provision_guest_agent=True)
-                        d = dict()
-                        operation = self.sms.get_operation_status(result.request_id)
-                        d['result'] = result.__dict__
-                        d['operation'] = operation.__dict__
-                        if not self.async:
-                            pprint.pprint(d)
-                            return self.wait_for_operation_status(result.request_id)
-                        else:
-                            return d
-                    except (WindowsAzureConflictError) as e:
-                        logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
-                        return False
-                else:
-                    logger('%s: limited to read-only operations' % inspect.stack()[0][3])        
+            if not self.verify_mandatory_params(method='update_role', params=kwargs):
+                return False
+            
+            self.service = kwargs['service']
+            self.deployment = kwargs['deployment']     
+            self.name = kwargs['name']
+            role = self.get_role(service=self.service, deployment=self.deployment, name=self.name)
+            if role:
+                pprint.pprint(role)
+                self.os = self.get_os_for_role(service=self.service, deployment=self.deployment, name=self.name)
+                self.size = self.get_optional_params(key='size', params=kwargs, default=role['role_size'])
+                self.availset = self.get_optional_params(key='availset', params=kwargs, default=role['availability_set_name'])
+                self.subnet = self.get_optional_params(key='subnet', params=kwargs, default=role['configuration_sets'][0]['subnet_names'][0])
+                self.eps = self.get_optional_params(key='eps', params=kwargs, default=role['configuration_sets'][0]['input_endpoints'])
+                self.rextrs = self.get_optional_params(key='rextrs', params=kwargs, default=None)
+                self.os_disk = self.get_optional_params(key='os_disk', params=kwargs, default=role['os_virtual_hard_disk'])
+                self.data_disk = self.get_optional_params(key='data_disk', params=kwargs, default=role['data_virtual_hard_disks'])
+                self.async = self.get_optional_params(key='async', params=kwargs, default=self.default_async)
+                self.readonly = self.get_optional_params(key='readonly', params=kwargs, default=self.default_readonly)                
             else:
-                logger(pprint.pprint(self.__dict__))
-                logger('not all required parameters present for %s' % inspect.stack()[0][3])
-                sys.exit(1)
+                logger('%s: unable to retrieve properties for role %s' % (inspect.stack()[0][3], self.name))
+                return False
+           
+            net_config = ConfigurationSet()
+            net_config.configuration_set_type = 'NetworkConfiguration'
+            subnet = Subnet()
+            subnet.name = self.subnet
+            subnets = Subnets()
+            subnets.subnets.append(subnet.name)
+            net_config.subnet_names = subnets
+            eps = ConfigurationSetInputEndpoints()                
+            eps = self.eps
+
+            # -- retrieve ACLs
+            # TBC
+            
+            net_config.input_endpoints = eps
+            self.net_config = net_config
+
+            pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                try:
+                    result = self.sms.update_role(self.service, self.deployment, self.name,
+                                                  os_virtual_hard_disk=self.os_disk, network_config=self.net_config, availability_set_name=self.availset,
+                                                  data_virtual_hard_disks=self.data_disk, role_size=self.size, role_type='PersistentVMRole',
+                                                  resource_extension_references=self.rextrs, provision_guest_agent=True)
+                    d = dict()
+                    operation = self.sms.get_operation_status(result.request_id)
+                    d['result'] = result.__dict__
+                    d['operation'] = operation.__dict__
+                    if not self.async:
+                        pprint.pprint(d)
+                        return self.wait_for_operation_status(result.request_id)
+                    else:
+                        return d
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
         except Exception as e:
             logger(message=repr(e))
             return False
@@ -2198,7 +2208,8 @@ if __name__ == '__main__':
                                          service=(arg.service[0] if arg.service else None),
                                          name=(arg.name[0] if arg.name else None),
                                          rextrs=csre,
-                                         async=arg.async))
+                                         async=arg.async,
+                                         readonly=arg.readonly))
         elif arg.action[0] in ['add_chefclient_extension']:
             az.os = az.get_os_for_role(service=(arg.service[0] if arg.service else None),
                                        deployment=(arg.deployment[0] if arg.deployment else None),

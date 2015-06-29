@@ -1,4 +1,5 @@
 #!/bin/bash
 
 # custom shell script
-printf 'Executing custom shell script...\n'
+printf 'executing custom shell script...\n'
+printf 'your command(s) go here\n'
