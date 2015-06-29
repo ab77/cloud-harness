@@ -12,3 +12,12 @@ Currently only one provider is supported:
 * edit cloud-harness.conf, set `default_subscription_id` and `default_certificate_path`
 * uncomment other configuration options as required
 * run `python ./cloud-harness.py azure --help` to see command line options
+* run `python ./cloud-harness.py azure` for the default action `[list_hosted_services]`
+* run `python ./cloud-harness.py azure --action add_role` to get a list of required parameters
+
+### Further Work
+Lots, including:
+* implement at least one additional cloud service provider
+* add unittest framework
+* implementat additional VM extensions
+* move all defaults to config file
