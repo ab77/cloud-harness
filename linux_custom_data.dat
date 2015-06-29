@@ -1,5 +1,7 @@
 #!/bin/bash
 
 # custom shell script
+# this script gets unpacked and executed by the CustomScript VM extension using bootstrap.sh
+
 printf 'executing custom shell script...\n'
 printf 'your command(s) go here\n'
