@@ -1,3 +1,5 @@
 # custom PowerShell script
+# this script gets unpacked and executed by the CustomScript VM extension using bootstrap.ps1
+
 Write-Host "executing custom PowerShell script..."
 Write-Host "your command(s) go here"
