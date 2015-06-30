@@ -40,7 +40,7 @@ def args():
     sp = parser.add_subparsers()    
     azure = sp.add_parser('azure')
     azure.add_argument('provider', action='store_const', const='azure', help=argparse.SUPPRESS)
-    azure.add_argument('--action', type=str, nargs=1, required=False, default=[AzureCloudClass.default_action], choices=AzureCloudClass.actions, help='action (default: %s)' % AzureCloudClass.default_action)
+    azure.add_argument('--action', type=str, nargs=1, required=False, default=[AzureCloudClass.default_action], choices=[a['action'] for a in AzureCloudClass.actions], help='action (default: %s)' % AzureCloudClass.default_action)
     azure.add_argument('--subscription_id', type=str, nargs=1, required=False, default=[AzureCloudClass.default_subscription_id], help='Azure subscription ID (default: %s)' % AzureCloudClass.default_subscription_id)
     azure.add_argument('--certificate_path', type=str, nargs=1, required=False, default=[AzureCloudClass.default_certificate_path], help='Azure management certificate (default: %s)' % AzureCloudClass.default_certificate_path)
     azure.add_argument('--start_date', type=str, nargs=1, default=mkdate(AzureCloudClass.default_start_date, '%Y-%m-%d'), help='start date for list_subscription_operations (default: %s)' % mkdate(AzureCloudClass.default_start_date, '%Y-%m-%d'))
@@ -48,7 +48,7 @@ def args():
     azure.add_argument('--service', type=str, nargs=1, required=False, help='hosted service name')
     azure.add_argument('--account', type=str, nargs=1, required=False, default=[BaseCloudHarnessClass.default_storage_account], help='storage account name (default: %s)' % [BaseCloudHarnessClass.default_storage_account])
     azure.add_argument('--group', type=str, nargs=1, required=False, help='affinity group name')
-    azure.add_argument('--label', type=str, nargs=1, required=False, help='affinity group label')
+    azure.add_argument('--label', type=str, nargs=1, required=False, help='affinity group, disk or role name label')
     azure.add_argument('--description', type=str, nargs=1, required=False, help='affinity group description')
     azure.add_argument('--name', type=str, nargs='+', required=False, help='VM (role) or DNS server name')
     azure.add_argument('--ipaddr', type=str, nargs=1, required=False, help='DNS server IP address')
@@ -64,6 +64,8 @@ def args():
     azure.add_argument('--deployment', type=str, nargs=1, required=False, help='deployment name')
     azure.add_argument('--slot', type=str, nargs=1, required=False, default=[AzureCloudClass.default_deployment_slot], help='deployment slot (default %s)' % AzureCloudClass.default_deployment_slot)
     azure.add_argument('--size', type=str, nargs=1, required=False, default=[AzureCloudClass.default_size], help='VM size (default %s)' % AzureCloudClass.default_size)
+    azure.add_argument('--disk_size', type=int, nargs=1, required=False, default=[AzureCloudClass.default_disk_size], help='disk size in GB (default %s)' % AzureCloudClass.default_disk_size)
+    azure.add_argument('--host_caching', type=str, nargs=1, required=False, default=[AzureCloudClass.default_host_caching], choices=['ReadOnly', 'None', 'ReadOnly', 'ReadWrite'], help='wait for operation status (default %r)' % AzureCloudClass.default_host_caching)
     azure.add_argument('--username', type=str, nargs=1, required=False, default=[AzureCloudClass.default_user_name], help='username for VM deployments (default %s)' % AzureCloudClass.default_user_name)
     azure.add_argument('--password', type=str, nargs=1, required=False, help='password for VM deployments')
     azure.add_argument('--pwd_expiry', type=int, nargs=1, required=False, default=[AzureCloudClass.default_pwd_expiry], help='VMAccess password expiry (default: %i days)' % AzureCloudClass.default_pwd_expiry)
@@ -104,7 +106,7 @@ class BaseCloudHarnessClass():
     debug = True
     log = True
     proxy = False
-    ssl_verify=False
+    ssl_verify = False
     proxy_host = 'localhost'
     proxy_port = 8888
     log_file = '%s' % os.path.basename(__file__).replace('py', 'log')
@@ -162,106 +164,103 @@ class BaseCloudHarnessClass():
     
 class AzureCloudClass(BaseCloudHarnessClass):
     default_action = 'list_hosted_services'
-    actions = ['x_ms_version',
-               'host',
-               'cert_file',
-               'content_type',
-               'timeout',
-               'sub_id',
-               'request_session',
-               'requestid',
-               'list_affinity_groups',
-               'list_disks',
-               'list_hosted_services',
-               'list_locations',
-               'list_management_certificates',
-               'list_operating_system_families',
-               'list_os_images',
-               'list_reserved_ip_addresses',
-               'list_resource_extension_versions',
-               'list_resource_extensions',
-               'list_role_sizes',
-               'list_service_certificates',
-               'list_storage_accounts',
-               'list_subscription_operations',
-               'list_subscriptions',
-               'list_virtual_network_sites',
-               'list_vm_images',
-               'get_certificate_from_publish_settings',
-               'get_storage_account_properties',
-               'get_deployment_by_slot',
-               'get_deployment_by_name',
-               'get_role',
-               'get_data_disk',
-               'get_disk',
-               'get_hosted_service_properties',
-               'get_management_certificate',
-               'get_operation_status',
-               'get_os_image',
-               'get_reserved_ip_address',
-               'get_service_certificate',
-               'get_storage_account_keys',
-               'get_subscription',
-               'get_affinity_group_properties',
-               'get_hosted_service_properties',
-               'get_disk_by_role_name',
-               'get_endpoint_acl',
-               'check_hosted_service_name_availability',
-               'check_storage_account_name_availability',
-               'create_affinity_group',
-               'create_virtual_machine_deployment',
-               'delete_affinity_group',
-               'update_affinity_group',
-               'add_role',
-               'delete_role',
-               'delete_disk',
-               'delete_deployment',
-               'delete_dns_server',
-               'wait_for_operation_status',
-               'perform_get',
-               'perform_put',
-               'perform_delete',
-               'perform_post',
-               'set_endpoint_acl',
-               'reboot_role_instance',
-               'start_role',
-               'start_roles',
-               'restart_role',
-               'shutdown_role',
-               'shutdown_roles',
-               'add_data_disk',
-               'add_disk',
-               'add_dns_server',
-               'add_management_certificate',
-               'add_os_image',
-               'add_service_certificate',
-               'update_data_disk',
-               'update_deployment_status',
-               'update_disk',
-               'update_dns_server',
-               'update_hosted_service',
-               'update_os_image',
-               'update_role',
-               'update_storage_account',
-               'update_vm_image',
-               'capture_role',
-               'capture_vm_image',
-               'upgrade_deployment',
-               'change_deployment_configuration',
-               'rebuild_role_instance',
-               'regenerate_storage_account_keys',
-               'reimage_role_instance',
-               'rollback_update_or_upgrade',
-               'swap_deployment',
-               'walk_upgrade_domain',
-               'add_customscript_extension',
-               'add_chefclient_extension',
-               'add_vmaccess_extension',
-               'add_ospatching_extension']
-
-    mandatory_params = {'list_service_certificates' : ['service'],
-                        'add_role': ['deployment', 'service', 'os', 'name', 'image', 'subnet', 'account'],
-                        'update_role': ['deployment', 'service', 'name']}
+    actions = [{'action': 'x_ms_version', 'params': []},
+               {'action': 'host', 'params': []},
+               {'action': 'cert_file', 'params': []},
+               {'action': 'content_type', 'params': []},
+               {'action': 'timeout', 'params': []},
+               {'action': 'sub_id', 'params': []},
+               {'action': 'request_session', 'params': []},
+               {'action': 'requestid', 'params': []},
+               {'action': 'list_affinity_groups', 'params': []},
+               {'action': 'list_disks', 'params': []},
+               {'action': 'list_hosted_services', 'params': []},
+               {'action': 'list_locations', 'params': []},
+               {'action': 'list_management_certificates', 'params': []},
+               {'action': 'list_operating_system_families', 'params': []},
+               {'action': 'list_os_images', 'params': []},
+               {'action': 'list_reserved_ip_addresses', 'params': []},
+               {'action': 'list_resource_extension_versions', 'params': []},
+               {'action': 'list_resource_extensions', 'params': []},
+               {'action': 'list_role_sizes', 'params': []},
+               {'action': 'list_service_certificates', 'params': ['service']},
+               {'action': 'list_storage_accounts', 'params': []},
+               {'action': 'list_subscription_operations', 'params': []},
+               {'action': 'list_subscriptions', 'params': []},
+               {'action': 'list_virtual_network_sites', 'params': []},
+               {'action': 'list_vm_images', 'params': []},
+               {'action': 'get_certificate_from_publish_settings', 'params': []},
+               {'action': 'get_storage_account_properties', 'params': []},
+               {'action': 'get_deployment_by_slot', 'params': []},
+               {'action': 'get_deployment_by_name', 'params': []},
+               {'action': 'get_role', 'params': []},
+               {'action': 'get_data_disk', 'params': []},
+               {'action': 'get_disk', 'params': []},
+               {'action': 'get_hosted_service_properties', 'params': []},
+               {'action': 'get_management_certificate', 'params': []},
+               {'action': 'get_operation_status', 'params': []},
+               {'action': 'get_os_image', 'params': []},
+               {'action': 'get_reserved_ip_address', 'params': []},
+               {'action': 'get_service_certificate', 'params': []},
+               {'action': 'get_storage_account_keys', 'params': []},
+               {'action': 'get_subscription', 'params': []},
+               {'action': 'get_affinity_group_properties', 'params': []},
+               {'action': 'get_hosted_service_properties', 'params': []},
+               {'action': 'get_disk_by_role_name', 'params': []},
+               {'action': 'get_endpoint_acl', 'params': []},
+               {'action': 'check_hosted_service_name_availability', 'params': []},
+               {'action': 'check_storage_account_name_availability', 'params': []},
+               {'action': 'create_affinity_group', 'params': []},
+               {'action': 'create_virtual_machine_deployment', 'params': []},
+               {'action': 'delete_affinity_group', 'params': []},
+               {'action': 'update_affinity_group', 'params': []},
+               {'action': 'add_role', 'params': ['deployment', 'service', 'os', 'name', 'image', 'subnet', 'account']},
+               {'action': 'delete_role', 'params': []},
+               {'action': 'delete_disk', 'params': []},
+               {'action': 'delete_deployment', 'params': []},
+               {'action': 'delete_dns_server', 'params': []},
+               {'action': 'wait_for_operation_status', 'params': []},
+               {'action': 'perform_get', 'params': []},
+               {'action': 'perform_put', 'params': []},
+               {'action': 'perform_delete', 'params': []},
+               {'action': 'perform_post', 'params': []},
+               {'action': 'set_endpoint_acl', 'params': []},
+               {'action': 'reboot_role_instance', 'params': []},
+               {'action': 'start_role', 'params': []},
+               {'action': 'start_roles', 'params': []},
+               {'action': 'restart_role', 'params': []},
+               {'action': 'shutdown_role', 'params': []},
+               {'action': 'shutdown_roles', 'params': []},
+               {'action': 'add_data_disk', 'params': ['service', 'deployment', 'name', 'lun']},
+               {'action': 'add_disk', 'params': []},
+               {'action': 'add_dns_server', 'params': []},
+               {'action': 'add_management_certificate', 'params': []},
+               {'action': 'add_os_image', 'params': []},
+               {'action': 'add_service_certificate', 'params': []},
+               {'action': 'update_data_disk', 'params': []},
+               {'action': 'update_deployment_status', 'params': []},
+               {'action': 'update_disk', 'params': []},
+               {'action': 'update_dns_server', 'params': []},
+               {'action': 'update_hosted_service', 'params': []},
+               {'action': 'update_os_image', 'params': []},
+               {'action': 'update_role', 'params': ['deployment', 'service', 'name']},
+               {'action': 'update_storage_account', 'params': []},
+               {'action': 'update_vm_image', 'params': []},
+               {'action': 'capture_role', 'params': []},
+               {'action': 'capture_vm_image', 'params': []},
+               {'action': 'upgrade_deployment', 'params': []},
+               {'action': 'change_deployment_configuration', 'params': []},
+               {'action': 'rebuild_role_instance', 'params': []},
+               {'action': 'regenerate_storage_account_keys', 'params': []},
+               {'action': 'reimage_role_instance', 'params': []},
+               {'action': 'rollback_update_or_upgrade', 'params': []},
+               {'action': 'swap_deployment', 'params': []},
+               {'action': 'walk_upgrade_domain', 'params': []},
+               {'action': 'add_customscript_extension', 'params': []},
+               {'action': 'add_chefclient_extension', 'params': []},
+               {'action': 'add_vmaccess_extension', 'params': []},
+               {'action': 'add_ospatching_extension', 'params': []},
+               {'action': 'get_role_properties_xml', 'params': ['deployment', 'service', 'name']}]
     
     default_end_date = datetime.now()
     default_start_date = default_end_date - timedelta(days=7)
@@ -269,6 +268,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
     default_extension = 'CustomScriptExtension'
     default_deployment_slot = 'Production'
     default_size = 'Medium'
+    default_disk_size = 30
     default_user_name = 'azureuser'
     default_status = 'Succeeded'
     default_async = False
@@ -300,6 +300,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
     default_patching_starttime = ''
     default_patching_category = 'ImportantAndRecommended'
     default_patching_duration = '03:00'
+    default_host_caching = 'ReadOnly'
     
     def __init__(self, subscription_id=None, certificate_path=None):
         self.service = None
@@ -339,10 +340,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
             return default
         
     def verify_mandatory_params(self, **kwargs):
-        for param in self.mandatory_params[kwargs['method']]:            
+        for param in [p['params'] for p in self.actions if p['action'] == kwargs['method']][0]:
             if param not in kwargs['params'].keys() or kwargs['params'][param] is None:
                 logger('%s: not all required parameters %s validated, %s' % (kwargs['method'],
-                                                                             self.mandatory_params[kwargs['method']],
+                                                                             [p['params'] for p in self.actions if p['action'] == kwargs['method']][0],
                                                                              kwargs['params']))
                 return False
         return True
@@ -500,34 +501,80 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=repr(e))
             return False
 
-        def add_data_disk(self):
-            pass
-        
-        def add_disk(self):
-            pass
-        
-        def add_dns_server(self, service=None, deployment=None, name=None, ipaddr=None):
-            try:
-                if service and deployment and name and ipaddr:
-                    self.service = service
-                    self.deployment = deployment
-                    self.name = name
-                    self.ipaddr = ipaddr
-                    result = self.sms.add_dns_server(self.service, self.deployment, self.name, self.ipaddr)        
-                    if result is not None:
-                        d = dict()
-                        operation = self.sms.get_operation_status(result.request_id)
-                        d['result'] = result.__dict__
-                        d['operation'] = operation.__dict__
-                        return d
-                    else:
-                        return False
-                else:
-                   logger('add_dns_server() requires service, deployment, DNS server names and IP address, None specified') 
-                   sys.exit(1)
-            except Exception as e:
-                logger(message=repr(e))
+    def add_data_disk(self, **kwargs):
+        try:
+            if not self.verify_mandatory_params(method=inspect.stack()[0][3], params=kwargs):
                 return False
+
+            self.service = kwargs['service']
+            self.deployment = kwargs['deployment']     
+            self.name = kwargs['name']
+            self.lun = kwargs['lun']
+            
+            self.label = self.get_optional_params(key='disk_label', params=kwargs, default=None)
+            self.disk = self.get_optional_params(key='name', params=kwargs, default=None)
+            self.account = self.get_optional_params(key='account', params=kwargs, default=self.default_storage_account)
+            self.host_caching = self.get_optional_params(key='host_caching', params=kwargs, default=self.default_host_caching)
+            self.disk_size = self.get_optional_params(key='disk_size', params=kwargs, default=self.default_disk_size)            
+            self.async = self.get_optional_params(key='async', params=kwargs, default=self.default_async)
+            self.readonly = self.get_optional_params(key='readonly', params=kwargs, default=self.default_readonly)
+
+            ts = mkdate(datetime.now(), '%Y-%m-%d-%H-%M-%S-%f')            
+            self.media_link = 'https://%s.blob.core.windows.net/vhds/%s-%s-%s-%i.vhd' % (self.account, self.name, self.service, ts, self.lun)
+            
+            pprint.pprint(self.__dict__)
+            if not self.readonly:
+                try:
+                    result = self.sms.add_data_disk(self.service, self.deployment, self.name, self.lun,
+                                                    host_caching=self.host_caching,
+                                                    media_link=self.media_link,
+                                                    disk_label=self.label,
+                                                    disk_name=self.disk,
+                                                    logical_disk_size_in_gb=self.disk_size,
+                                                    source_media_link=None)
+                    d = dict()
+                    operation = self.sms.get_operation_status(result.request_id)
+                    d['result'] = result.__dict__
+                    d['operation'] = operation.__dict__
+                    if not self.async:
+                        pprint.pprint(d)
+                        return self.wait_for_operation_status(result.request_id)
+                    else:
+                        return d
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=repr(e))
+            return False
+        
+    def add_disk(self, **kwargs):
+        pass
+        
+    def add_dns_server(self, service=None, deployment=None, name=None, ipaddr=None):
+        try:
+            if service and deployment and name and ipaddr:
+                self.service = service
+                self.deployment = deployment
+                self.name = name
+                self.ipaddr = ipaddr
+                result = self.sms.add_dns_server(self.service, self.deployment, self.name, self.ipaddr)        
+                if result is not None:
+                    d = dict()
+                    operation = self.sms.get_operation_status(result.request_id)
+                    d['result'] = result.__dict__
+                    d['operation'] = operation.__dict__
+                    return d
+                else:
+                    return False
+            else:
+               logger('add_dns_server() requires service, deployment, DNS server names and IP address, None specified') 
+               sys.exit(1)
+        except Exception as e:
+            logger(message=repr(e))
+            return False
     
     def add_management_certificate(self):
         pass
@@ -1575,6 +1622,27 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=repr(e))
             return False
 
+    def get_role_properties_xml(self, **kwargs):
+        try:
+            if not self.verify_mandatory_params(method='get_role_properties_xml', params=kwargs):
+                return False
+            
+            self.service = kwargs['service']
+            self.deployment = kwargs['deployment']     
+            self.name = kwargs['name']
+            self.path = '/%s/services/hostedservices/%s/deployments/%s/roles/%s' % (self.default_subscription_id,
+                                                                                    self.service,
+                                                                                    self.deployment,
+                                                                                    self.name)
+            response = self.sms.perform_get(self.path, x_ms_version=self.sms.x_ms_version)
+            if response is not None:
+                return response.__dict__
+            else:
+                return None
+        except Exception as e:
+            logger(message=repr(e))
+            return False        
+
     def perform_delete(self, path=None):
         try:
             if path:
@@ -2256,6 +2324,16 @@ if __name__ == '__main__':
                                          rextrs=ospre,
                                          async=arg.async,
                                          readonly=arg.readonly))
+        elif arg.action[0] in ['get_role_properties_xml']:
+            pprint.pprint(az.get_role_properties_xml(deployment=arg.deployment[0] if arg.deployment else None,
+                                                     service=arg.service[0] if arg.service else None,
+                                                     name=arg.name[0] if arg.name else None))
+        elif arg.action[0] in ['add_data_disk']:
+            pprint.pprint(az.add_data_disk(deployment=arg.deployment[0] if arg.deployment else None,
+                                           service=arg.service[0] if arg.service else None,
+                                           name=arg.name[0] if arg.name else None,
+                                           lun=arg.lun[0] if arg.lun else None,
+                                           account=arg.account[0] if arg.account else None))
         else:
             logger(message='Unknown action' % arg.action)
             sys.exit(1)
