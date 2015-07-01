@@ -47,12 +47,13 @@ def args():
     azure.add_argument('--end_date', type=str, nargs=1, default=mkdate(AzureCloudClass.default_end_date, '%Y-%m-%d'), help='end date for subscription_operations (default: %s)' % mkdate(AzureCloudClass.default_end_date, '%Y-%m-%d'))
     azure.add_argument('--service', type=str, nargs=1, required=False, help='hosted service name')
     azure.add_argument('--account', type=str, nargs=1, required=False, default=[BaseCloudHarnessClass.default_storage_account], help='storage account name (default: %s)' % [BaseCloudHarnessClass.default_storage_account])
+    azure.add_argument('--container', type=str, nargs=1, required=False, default=[BaseCloudHarnessClass.default_storage_container], help='storage container name (default: %s)' % [BaseCloudHarnessClass.default_storage_container])
     azure.add_argument('--group', type=str, nargs=1, required=False, help='affinity group name')
     azure.add_argument('--label', type=str, nargs=1, required=False, help='affinity group, disk or role name label')
     azure.add_argument('--description', type=str, nargs=1, required=False, help='affinity group description')
-    azure.add_argument('--name', type=str, nargs='+', required=False, help='VM (role) or DNS server name')
+    azure.add_argument('--name', type=str, nargs=1, required=False, help='VM (role) or DNS server name')
     azure.add_argument('--ipaddr', type=str, nargs=1, required=False, help='DNS server IP address')
-    azure.add_argument('--image', type=str, nargs=1, required=False, help='OS image name')
+    azure.add_argument('--image', type=str, nargs=1, required=False, help='OS or data disk image blob name')
     azure.add_argument('--disk', type=str, nargs=1, required=False, help='disk name')
     azure.add_argument('--delete_vhd', action='store_true', required=False, help='delete or keep VHD')
     azure.add_argument('--async', action='store_true', required=False, help='asynchronous operation')
@@ -105,7 +106,7 @@ def logger(message=None):
 class BaseCloudHarnessClass():
     debug = True
     log = True
-    proxy = False
+    proxy = True
     ssl_verify = False
     proxy_host = 'localhost'
     proxy_port = 8888
@@ -231,7 +232,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'restart_role', 'params': []},
                {'action': 'shutdown_role', 'params': []},
                {'action': 'shutdown_roles', 'params': []},
-               {'action': 'add_data_disk', 'params': ['service', 'deployment', 'name', 'lun']},
+               {'action': 'add_data_disk', 'params': ['service', 'deployment', 'name']},
                {'action': 'add_disk', 'params': []},
                {'action': 'add_dns_server', 'params': []},
                {'action': 'add_management_certificate', 'params': []},
@@ -300,7 +301,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
     default_patching_starttime = ''
     default_patching_category = 'ImportantAndRecommended'
     default_patching_duration = '03:00'
-    default_host_caching = 'ReadOnly'
+    default_host_caching = 'ReadWrite'
     
     def __init__(self, subscription_id=None, certificate_path=None):
         self.service = None
@@ -332,19 +333,22 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
     def get_optional_params(self, **kwargs):
         key = kwargs['key']
-        keys = kwargs['params'].keys()
+        keys = kwargs['params'].__dict__.keys()
         default = kwargs['default']
-        if key in keys and kwargs['params'][key] is not None:
-            return kwargs['params'][kwargs['key']]
+        if key in keys and kwargs['params'].__dict__[key] is not None:
+            if isinstance(kwargs['params'].__dict__[kwargs['key']], list):
+                return kwargs['params'].__dict__[kwargs['key']][0]
+            else:
+                return kwargs['params'].__dict__[kwargs['key']]
         else:
             return default
         
-    def verify_mandatory_params(self, **kwargs):
+    def verify_mandatory_params(self, **kwargs): 
         for param in [p['params'] for p in self.actions if p['action'] == kwargs['method']][0]:
-            if param not in kwargs['params'].keys() or kwargs['params'][param] is None:
+            if param not in kwargs['params'].__dict__.keys() or kwargs['params'].__dict__[param] is None:
                 logger('%s: not all required parameters %s validated, %s' % (kwargs['method'],
                                                                              [p['params'] for p in self.actions if p['action'] == kwargs['method']][0],
-                                                                             kwargs['params']))
+                                                                             param))
                 return False
         return True
             
@@ -467,7 +471,11 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 
             self.net_config = net_config            
             ts = mkdate(datetime.now(), '%Y-%m-%d-%H-%M-%S-%f')            
-            self.media_link = 'https://%s.blob.core.windows.net/vhds/%s-%s-%s-0.vhd' % (self.account, self.name, self.service, ts)
+            self.media_link = 'https://%s.blob.core.windows.net/%s/%s-%s-%s-0.vhd' % (self.account,
+                                                                                      'vhds',
+                                                                                      self.service,
+                                                                                      self.name,
+                                                                                      ts)
             self.disk_config = OSVirtualHardDisk(source_image_name=self.image,
                                                  media_link=self.media_link,
                                                  host_caching=None,
@@ -501,27 +509,44 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=repr(e))
             return False
 
-    def add_data_disk(self, **kwargs):
+    def add_data_disk(self, *args, **kwargs):
+        arg = args[0]
         try:
-            if not self.verify_mandatory_params(method=inspect.stack()[0][3], params=kwargs):
+            if not self.verify_mandatory_params(method=inspect.stack()[0][3], params=arg):
                 return False
-
-            self.service = kwargs['service']
-            self.deployment = kwargs['deployment']     
-            self.name = kwargs['name']
-            self.lun = kwargs['lun']
             
-            self.label = self.get_optional_params(key='disk_label', params=kwargs, default=None)
-            self.disk = self.get_optional_params(key='name', params=kwargs, default=None)
-            self.account = self.get_optional_params(key='account', params=kwargs, default=self.default_storage_account)
-            self.host_caching = self.get_optional_params(key='host_caching', params=kwargs, default=self.default_host_caching)
-            self.disk_size = self.get_optional_params(key='disk_size', params=kwargs, default=self.default_disk_size)            
-            self.async = self.get_optional_params(key='async', params=kwargs, default=self.default_async)
-            self.readonly = self.get_optional_params(key='readonly', params=kwargs, default=self.default_readonly)
+            self.service = arg.service[0]
+            self.deployment = arg.deployment[0]  
+            self.name = arg.name[0]
+            self.lun = self.get_optional_params(key='lun',
+                                                params=arg,
+                                                default=len(self.get_disk_by_role_name(service=self.service,
+                                                                                       deployment=self.deployment,
+                                                                                       name=self.name)))
+            self.image = self.get_optional_params(key='image', params=arg, default=None)
+            self.disk = self.get_optional_params(key='disk', params=arg, default=None)
+            self.label = self.get_optional_params(key='disk_label', params=arg, default=None)
+            self.account = self.get_optional_params(key='account', params=arg, default=self.default_storage_account)
+            self.container = self.get_optional_params(key='container', params=arg, default='vhds')       
+            self.host_caching = self.get_optional_params(key='host_caching', params=arg, default=self.default_host_caching)
+            self.disk_size = self.get_optional_params(key='disk_size', params=arg, default=self.default_disk_size)            
+            self.async = self.get_optional_params(key='async', params=arg, default=self.default_async)
+            self.readonly = self.get_optional_params(key='readonly', params=arg, default=self.default_readonly)
 
-            ts = mkdate(datetime.now(), '%Y-%m-%d-%H-%M-%S-%f')            
-            self.media_link = 'https://%s.blob.core.windows.net/vhds/%s-%s-%s-%i.vhd' % (self.account, self.name, self.service, ts, self.lun)
-            
+            ts = mkdate(datetime.now(), '%Y-%m-%d-%H-%M-%S-%f')
+            if self.image:
+                self.media_link = None
+                self.source_media_link = 'https://%s.blob.core.windows.net/%s/%s' % (self.account,
+                                                                                     self.container,
+                                                                                     self.image)
+            else:
+                self.source_media_link = None
+                self.media_link = 'https://%s.blob.core.windows.net/%s/%s-%s-%s-%s.vhd' % (self.account,
+                                                                                           self.container,
+                                                                                           self.service,
+                                                                                           self.disk,
+                                                                                           ts,
+                                                                                           self.lun)   
             pprint.pprint(self.__dict__)
             if not self.readonly:
                 try:
@@ -531,7 +556,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                     disk_label=self.label,
                                                     disk_name=self.disk,
                                                     logical_disk_size_in_gb=self.disk_size,
-                                                    source_media_link=None)
+                                                    source_media_link=self.source_media_link)
                     d = dict()
                     operation = self.sms.get_operation_status(result.request_id)
                     d['result'] = result.__dict__
@@ -1082,7 +1107,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 self.deployment = deployment
                 self.name = name
                 self.async = async
-                self.disk = self.get_disk_by_role_name(self.service, self.deployment, self.name)
                 result = self.sms.delete_role(self.service, self.deployment, self.name)
                 if result is not None:
                     d = dict()
@@ -1432,12 +1456,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 self.name = name
                 disks = self.list_disks()
                 try:
-                    self.disk = [k for k in disks if k is not None and k['attached_to']['role_name'] == self.name and k['attached_to']['deployment_name'] == self.deployment and k['attached_to']['hosted_service_name'] == self.service]
+                    d = [k for k in disks if k is not None and k['attached_to']['role_name'] == self.name and k['attached_to']['deployment_name'] == self.deployment and k['attached_to']['hosted_service_name'] == self.service]
                 except TypeError:
-                    self.disk = None
+                    d = None
                     pass
-                if self.disk is not None:
-                    return self.disk
+                if d is not None:
+                    return d
                 else:
                     return None
             else:
@@ -2329,11 +2353,7 @@ if __name__ == '__main__':
                                                      service=arg.service[0] if arg.service else None,
                                                      name=arg.name[0] if arg.name else None))
         elif arg.action[0] in ['add_data_disk']:
-            pprint.pprint(az.add_data_disk(deployment=arg.deployment[0] if arg.deployment else None,
-                                           service=arg.service[0] if arg.service else None,
-                                           name=arg.name[0] if arg.name else None,
-                                           lun=arg.lun[0] if arg.lun else None,
-                                           account=arg.account[0] if arg.account else None))
+            pprint.pprint(az.add_data_disk(arg))
         else:
             logger(message='Unknown action' % arg.action)
             sys.exit(1)
