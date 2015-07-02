@@ -165,104 +165,104 @@ class BaseCloudHarnessClass():
     
 class AzureCloudClass(BaseCloudHarnessClass):
     default_action = 'list_hosted_services'
-    actions = [{'action': 'x_ms_version', 'params': []},
-               {'action': 'host', 'params': []},
-               {'action': 'cert_file', 'params': []},
-               {'action': 'content_type', 'params': []},
-               {'action': 'timeout', 'params': []},
-               {'action': 'sub_id', 'params': []},
-               {'action': 'request_session', 'params': []},
-               {'action': 'requestid', 'params': []},
-               {'action': 'list_affinity_groups', 'params': []},
-               {'action': 'list_disks', 'params': []},
-               {'action': 'list_hosted_services', 'params': []},
-               {'action': 'list_locations', 'params': []},
-               {'action': 'list_management_certificates', 'params': []},
-               {'action': 'list_operating_system_families', 'params': []},
-               {'action': 'list_os_images', 'params': []},
-               {'action': 'list_reserved_ip_addresses', 'params': []},
-               {'action': 'list_resource_extension_versions', 'params': []},
-               {'action': 'list_resource_extensions', 'params': []},
-               {'action': 'list_role_sizes', 'params': []},
-               {'action': 'list_service_certificates', 'params': ['service']},
-               {'action': 'list_storage_accounts', 'params': []},
-               {'action': 'list_subscription_operations', 'params': []},
-               {'action': 'list_subscriptions', 'params': []},
-               {'action': 'list_virtual_network_sites', 'params': []},
-               {'action': 'list_vm_images', 'params': []},
-               {'action': 'get_certificate_from_publish_settings', 'params': []},
-               {'action': 'get_storage_account_properties', 'params': []},
-               {'action': 'get_deployment_by_slot', 'params': []},
-               {'action': 'get_deployment_by_name', 'params': []},
-               {'action': 'get_role', 'params': []},
-               {'action': 'get_data_disk', 'params': []},
-               {'action': 'get_disk', 'params': []},
-               {'action': 'get_hosted_service_properties', 'params': []},
-               {'action': 'get_management_certificate', 'params': []},
-               {'action': 'get_operation_status', 'params': []},
-               {'action': 'get_os_image', 'params': []},
-               {'action': 'get_reserved_ip_address', 'params': []},
-               {'action': 'get_service_certificate', 'params': []},
-               {'action': 'get_storage_account_keys', 'params': []},
-               {'action': 'get_subscription', 'params': []},
-               {'action': 'get_affinity_group_properties', 'params': []},
-               {'action': 'get_hosted_service_properties', 'params': []},
-               {'action': 'get_disk_by_role_name', 'params': []},
-               {'action': 'get_endpoint_acl', 'params': []},
-               {'action': 'check_hosted_service_name_availability', 'params': []},
-               {'action': 'check_storage_account_name_availability', 'params': []},
-               {'action': 'create_affinity_group', 'params': []},
-               {'action': 'create_virtual_machine_deployment', 'params': []},
-               {'action': 'delete_affinity_group', 'params': []},
-               {'action': 'update_affinity_group', 'params': []},
-               {'action': 'add_role', 'params': ['deployment', 'service', 'os', 'name', 'image', 'subnet', 'account']},
-               {'action': 'delete_role', 'params': []},
-               {'action': 'delete_disk', 'params': []},
-               {'action': 'delete_deployment', 'params': []},
-               {'action': 'delete_dns_server', 'params': []},
-               {'action': 'wait_for_operation_status', 'params': []},
-               {'action': 'perform_get', 'params': []},
-               {'action': 'perform_put', 'params': []},
-               {'action': 'perform_delete', 'params': []},
-               {'action': 'perform_post', 'params': []},
-               {'action': 'set_endpoint_acl', 'params': []},
-               {'action': 'reboot_role_instance', 'params': []},
-               {'action': 'start_role', 'params': []},
-               {'action': 'start_roles', 'params': []},
-               {'action': 'restart_role', 'params': []},
-               {'action': 'shutdown_role', 'params': []},
-               {'action': 'shutdown_roles', 'params': []},
-               {'action': 'add_data_disk', 'params': ['service', 'deployment', 'name']},
-               {'action': 'add_disk', 'params': []},
-               {'action': 'add_dns_server', 'params': []},
-               {'action': 'add_management_certificate', 'params': []},
-               {'action': 'add_os_image', 'params': []},
-               {'action': 'add_service_certificate', 'params': []},
-               {'action': 'update_data_disk', 'params': []},
-               {'action': 'update_deployment_status', 'params': []},
-               {'action': 'update_disk', 'params': []},
-               {'action': 'update_dns_server', 'params': []},
-               {'action': 'update_hosted_service', 'params': []},
-               {'action': 'update_os_image', 'params': []},
-               {'action': 'update_role', 'params': ['deployment', 'service', 'name']},
-               {'action': 'update_storage_account', 'params': []},
-               {'action': 'update_vm_image', 'params': []},
-               {'action': 'capture_role', 'params': []},
-               {'action': 'capture_vm_image', 'params': []},
-               {'action': 'upgrade_deployment', 'params': []},
-               {'action': 'change_deployment_configuration', 'params': []},
-               {'action': 'rebuild_role_instance', 'params': []},
-               {'action': 'regenerate_storage_account_keys', 'params': []},
-               {'action': 'reimage_role_instance', 'params': []},
-               {'action': 'rollback_update_or_upgrade', 'params': []},
-               {'action': 'swap_deployment', 'params': []},
-               {'action': 'walk_upgrade_domain', 'params': []},
-               {'action': 'add_customscript_extension', 'params': []},
-               {'action': 'add_chefclient_extension', 'params': []},
-               {'action': 'add_vmaccess_extension', 'params': []},
-               {'action': 'add_ospatching_extension', 'params': []},
-               {'action': 'get_role_properties_xml', 'params': ['deployment', 'service', 'name']}]
-    
+    actions = [{'action': 'x_ms_version', 'params': [], 'collection': False},
+               {'action': 'host', 'params': [], 'collection': False},
+               {'action': 'cert_file', 'params': [], 'collection': False},
+               {'action': 'content_type', 'params': [], 'collection': False},
+               {'action': 'timeout', 'params': [], 'collection': False},
+               {'action': 'sub_id', 'params': [], 'collection': False},
+               {'action': 'request_session', 'params': [], 'collection': False},
+               {'action': 'requestid', 'params': [], 'collection': False},
+               {'action': 'list_affinity_groups', 'params': [], 'collection': True},
+               {'action': 'list_disks', 'params': [], 'collection': True},
+               {'action': 'list_hosted_services', 'params': [], 'collection': True},
+               {'action': 'list_locations', 'params': [], 'collection': True},
+               {'action': 'list_management_certificates', 'params': [], 'collection': True},
+               {'action': 'list_operating_system_families', 'params': [], 'collection': True},
+               {'action': 'list_os_images', 'params': [], 'collection': True},
+               {'action': 'list_reserved_ip_addresses', 'params': [], 'collection': True},
+               {'action': 'list_resource_extension_versions', 'params': [], 'collection': False},
+               {'action': 'list_resource_extensions', 'params': [], 'collection': True},
+               {'action': 'list_role_sizes', 'params': [], 'collection': True},
+               {'action': 'list_service_certificates', 'params': ['service'], 'collection': False},
+               {'action': 'list_storage_accounts', 'params': [], 'collection': True},
+               {'action': 'list_subscription_operations', 'params': [], 'collection': False},
+               {'action': 'list_subscriptions', 'params': [], 'collection': True},
+               {'action': 'list_virtual_network_sites', 'params': ['action'], 'collection': True},
+               {'action': 'list_vm_images', 'params': [], 'collection': True},
+               {'action': 'get_certificate_from_publish_settings', 'params': [], 'collection': False},
+               {'action': 'get_storage_account_properties', 'params': [], 'collection': False},
+               {'action': 'get_deployment_by_slot', 'params': [], 'collection': False},
+               {'action': 'get_deployment_by_name', 'params': [], 'collection': False},
+               {'action': 'get_role', 'params': [], 'collection': False},
+               {'action': 'get_data_disk', 'params': [], 'collection': False},
+               {'action': 'get_disk', 'params': [], 'collection': False},
+               {'action': 'get_hosted_service_properties', 'params': [], 'collection': False},
+               {'action': 'get_management_certificate', 'params': [], 'collection': False},
+               {'action': 'get_operation_status', 'params': [], 'collection': False},
+               {'action': 'get_os_image', 'params': [], 'collection': False},
+               {'action': 'get_reserved_ip_address', 'params': [], 'collection': False},
+               {'action': 'get_service_certificate', 'params': [], 'collection': False},
+               {'action': 'get_storage_account_keys', 'params': [], 'collection': False},
+               {'action': 'get_subscription', 'params': [], 'collection': False},
+               {'action': 'get_affinity_group_properties', 'params': [], 'collection': False},
+               {'action': 'get_hosted_service_properties', 'params': [], 'collection': False},
+               {'action': 'get_disk_by_role_name', 'params': [], 'collection': False},
+               {'action': 'get_endpoint_acl', 'params': [], 'collection': False},
+               {'action': 'check_hosted_service_name_availability', 'params': [], 'collection': False},
+               {'action': 'check_storage_account_name_availability', 'params': [], 'collection': False},
+               {'action': 'create_affinity_group', 'params': [], 'collection': False},
+               {'action': 'create_virtual_machine_deployment', 'params': [], 'collection': False},
+               {'action': 'delete_affinity_group', 'params': [], 'collection': False},
+               {'action': 'update_affinity_group', 'params': [], 'collection': False},
+               {'action': 'add_role', 'params': ['deployment', 'service', 'os', 'name', 'image', 'subnet', 'account'], 'collection': False},
+               {'action': 'delete_role', 'params': [], 'collection': False},
+               {'action': 'delete_disk', 'params': [], 'collection': False},
+               {'action': 'delete_deployment', 'params': [], 'collection': False},
+               {'action': 'delete_dns_server', 'params': [], 'collection': False},
+               {'action': 'wait_for_operation_status', 'params': [], 'collection': False},
+               {'action': 'perform_get', 'params': [], 'collection': False},
+               {'action': 'perform_put', 'params': [], 'collection': False},
+               {'action': 'perform_delete', 'params': [], 'collection': False},
+               {'action': 'perform_post', 'params': [], 'collection': False},
+               {'action': 'set_endpoint_acl', 'params': ['service', 'deployment', 'name', 'subnet'], 'collection': False},
+               {'action': 'reboot_role_instance', 'params': [], 'collection': False},
+               {'action': 'start_role', 'params': [], 'collection': False},
+               {'action': 'start_roles', 'params': [], 'collection': False},
+               {'action': 'restart_role', 'params': [], 'collection': False},
+               {'action': 'shutdown_role', 'params': [], 'collection': False},
+               {'action': 'shutdown_roles', 'params': [], 'collection': False},
+               {'action': 'add_data_disk', 'params': ['service', 'deployment', 'name'], 'collection': False},
+               {'action': 'add_disk', 'params': [], 'collection': False},
+               {'action': 'add_dns_server', 'params': [], 'collection': False},
+               {'action': 'add_management_certificate', 'params': [], 'collection': False},
+               {'action': 'add_os_image', 'params': [], 'collection': False},
+               {'action': 'add_service_certificate', 'params': [], 'collection': False},
+               {'action': 'update_data_disk', 'params': [], 'collection': False},
+               {'action': 'update_deployment_status', 'params': [], 'collection': False},
+               {'action': 'update_disk', 'params': [], 'collection': False},
+               {'action': 'update_dns_server', 'params': [], 'collection': False},
+               {'action': 'update_hosted_service', 'params': [], 'collection': False},
+               {'action': 'update_os_image', 'params': [], 'collection': False},
+               {'action': 'update_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
+               {'action': 'update_storage_account', 'params': [], 'collection': False},
+               {'action': 'update_vm_image', 'params': [], 'collection': False},
+               {'action': 'capture_role', 'params': [], 'collection': False},
+               {'action': 'capture_vm_image', 'params': [], 'collection': False},
+               {'action': 'upgrade_deployment', 'params': [], 'collection': False},
+               {'action': 'change_deployment_configuration', 'params': [], 'collection': False},
+               {'action': 'rebuild_role_instance', 'params': [], 'collection': False},
+               {'action': 'regenerate_storage_account_keys', 'params': [], 'collection': False},
+               {'action': 'reimage_role_instance', 'params': [], 'collection': False},
+               {'action': 'rollback_update_or_upgrade', 'params': [], 'collection': False},
+               {'action': 'swap_deployment', 'params': [], 'collection': False},
+               {'action': 'walk_upgrade_domain', 'params': [], 'collection': False},
+               {'action': 'add_customscript_extension', 'params': [], 'collection': False},
+               {'action': 'add_chefclient_extension', 'params': [], 'collection': False},
+               {'action': 'add_vmaccess_extension', 'params': [], 'collection': False},
+               {'action': 'add_ospatching_extension', 'params': [], 'collection': False},
+               {'action': 'get_role_properties_xml', 'params': ['deployment', 'service', 'name'], 'collection': False}]
+
     default_end_date = datetime.now()
     default_start_date = default_end_date - timedelta(days=7)
     default_publisher = 'Microsoft.Compute'
@@ -346,42 +346,44 @@ class AzureCloudClass(BaseCloudHarnessClass):
     def verify_mandatory_params(self, **kwargs): 
         for param in [p['params'] for p in self.actions if p['action'] == kwargs['method']][0]:
             if param not in kwargs['params'].__dict__.keys() or kwargs['params'].__dict__[param] is None:
-                logger('%s: not all required parameters %s validated, %s' % (kwargs['method'],
-                                                                             [p['params'] for p in self.actions if p['action'] == kwargs['method']][0],
-                                                                             param))
+                logger('%s: not all required parameters %s validated, %s=%s' % (kwargs['method'],
+                                                                                [p['params'] for p in self.actions if p['action'] == kwargs['method']][0],
+                                                                                param,
+                                                                                kwargs['params'].__dict__[param]))
                 return False
         return True
             
-    def add_role(self, **kwargs):
+    def add_role(self, *args, **kwargs):
+        arg = args[0]
         try:
-            if not self.verify_mandatory_params(method='add_role', params=kwargs):
+            if not self.verify_mandatory_params(method=inspect.stack()[0][3], params=arg):
                 return False
             
-            self.service = kwargs['service']
-            self.deployment = kwargs['deployment']     
-            self.label = kwargs['label']
-            self.os = kwargs['os']
-            self.name = kwargs['name']
-            self.image = kwargs['image']
-            self.account = kwargs['account']
-            self.subnet = kwargs['subnet']
-            self.label = kwargs['label'] if 'label' in kwargs.keys() else self.label
-            if not self.label: self.label = self.name
-            self.availset = self.get_optional_params(key='availset', params=kwargs, default=None)
-            self.password = self.get_optional_params(key='password', params=kwargs, default=''.join(SystemRandom().choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(11)))
-            self.slot = self.get_optional_params(key='slot', params=kwargs, default=self.default_deployment_slot)            
-            self.size = self.get_optional_params(key='size', params=kwargs, default=self.default_size)
-            self.username = self.get_optional_params(key='username', params=kwargs, default=self.default_user_name)        
-            self.eps = self.get_optional_params(key='eps', params=kwargs, default=self.default_endpoints)
-            self.rextrs = self.get_optional_params(key='rextrs', params=kwargs, default=None)
-            self.ssh_public_key_cert = self.get_optional_params(key='ssh_public_key_cert', params=kwargs, default=self.default_ssh_public_key_cert)
-            self.async = self.get_optional_params(key='async', params=kwargs, default=self.default_async)
-            self.readonly = self.get_optional_params(key='readonly', params=kwargs, default=self.default_readonly)                
-            self.ssh_auth = self.get_optional_params(key='ssh_auth', params=kwargs, default=self.default_ssh_auth)                
-            self.disable_pwd_auth = self.get_optional_params(key='disable_pwd_auth', params=kwargs, default=self.default_disable_pwd_auth)                
+            self.service = arg.service[0]
+            self.deployment = arg.deployment[0]  
+            self.name = arg.name[0]
+            self.os = arg.os[0]
+            self.image = arg.image[0]
+            self.account = arg.account[0]
+            self.subnet = arg.subnet[0]
+
+            self.container = self.get_optional_params(key='container', params=arg, default='vhds')
+            self.label = self.get_optional_params(key='label', params=arg, default=self.name)
+            self.availset = self.get_optional_params(key='availset', params=arg, default=None)
+            self.password = self.get_optional_params(key='password', params=arg, default=''.join(SystemRandom().choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(11)))
+            self.slot = self.get_optional_params(key='slot', params=arg, default=self.default_deployment_slot)            
+            self.size = self.get_optional_params(key='size', params=arg, default=self.default_size)
+            self.username = self.get_optional_params(key='username', params=arg, default=self.default_user_name)        
+            self.eps = self.get_optional_params(key='eps', params=arg, default=self.default_endpoints)
+            self.rextrs = self.get_optional_params(key='rextrs', params=arg, default=None)
+            self.ssh_public_key_cert = self.get_optional_params(key='ssh_public_key_cert', params=arg, default=self.default_ssh_public_key_cert)
+            self.async = self.get_optional_params(key='async', params=arg, default=self.default_async)
+            self.readonly = self.get_optional_params(key='readonly', params=arg, default=self.default_readonly)                
+            self.ssh_auth = self.get_optional_params(key='ssh_auth', params=arg, default=self.default_ssh_auth)                
+            self.disable_pwd_auth = self.get_optional_params(key='disable_pwd_auth', params=arg, default=self.default_disable_pwd_auth)                
  
             if self.os == 'Windows':
-                self.custom_data_file = self.get_optional_params(key='custom_data_file', params=kwargs, default=self.default_windows_custom_data_file)
+                self.custom_data_file = self.get_optional_params(key='custom_data_file', params=arg, default=self.default_windows_custom_data_file)
                 try:
                     self.custom_data = None                                                    
                     with open(self.custom_data_file, 'rb') as cf:
@@ -391,7 +393,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     pass
 
             if self.os == 'Linux':
-                self.custom_data_file = self.get_optional_params(key='custom_data_file', params=kwargs, default=self.default_linux_custom_data_file)
+                self.custom_data_file = self.get_optional_params(key='custom_data_file', params=arg, default=self.default_linux_custom_data_file)
                 try:
                     self.custom_data = None                                                    
                     with open(self.custom_data_file, 'rb') as cf:
@@ -472,7 +474,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.net_config = net_config            
             ts = mkdate(datetime.now(), '%Y-%m-%d-%H-%M-%S-%f')            
             self.media_link = 'https://%s.blob.core.windows.net/%s/%s-%s-%s-0.vhd' % (self.account,
-                                                                                      'vhds',
+                                                                                      self.container,
                                                                                       self.service,
                                                                                       self.name,
                                                                                       ts)
@@ -1474,161 +1476,109 @@ class AzureCloudClass(BaseCloudHarnessClass):
     def host(self):
         return self.sms.host
 
-    def list_management_certificates(self):
-        certificates = self.sms.list_management_certificates()
-        l = []
-        for certificate in certificates:
-            l.append(certificate.__dict__)
-        return l
+    def list_resource_extension_versions(self, *args, **kwargs):
+        arg = args[0]
+        try:
+            if not self.verify_mandatory_params(method=inspect.stack()[0][3], params=arg):
+                return False
 
-    def list_locations(self):
-        locations = self.sms.list_locations()
-        l = []
-        for location in locations:
-            d = location.__dict__
-            d['compute_capabilities'] = location.compute_capabilities.__dict__
-            l.append(d)      
-        return l
+            self.publisher = self.get_optional_params(key='publisher', params=arg, default=self.default_publisher)           
+            self.extension = self.get_optional_params(key='extension', params=arg, default=self.default_extension)           
 
-    def list_affinity_groups(self):
-        groups = self.sms.list_affinity_groups()
-        l = []
-        for group in groups:
-            d = group.__dict__
-            l.append(d)      
-        return l
-
-    def list_operating_system_families(self):
-        families = self.sms.list_operating_system_families()
-        l = []
-        for family in families:
-            d = family.__dict__
-            d['operating_systems'] = [el.__dict__ for el in family.operating_systems.operating_systems if el]
-            l.append(d)      
-        return l
-
-    def list_os_images(self):
-        images = self.sms.list_os_images()
-        l = []
-        for image in images:
-            d = image.__dict__
-            l.append(d)      
-        return l
-
-    def list_reserved_ip_addresses(self):
-        ips = self.sms.list_reserved_ip_addresses()
-        l = []
-        for ip in ips:
-            d = ip.__dict__
-            l.append(d)      
-        return l
-
-    def list_resource_extension_versions(self, publisher=None, extension=None):
-        self.publisher = publisher or self.default_publisher
-        self.extension = extension or self.default_extension
-        versions = self.sms.list_resource_extension_versions(publisher, extension)
-        l = []
-        for version in versions:
-            d = version.__dict__
-            l.append(d)      
-        return l
-
-    def list_resource_extensions(self):
-        extensions = self.sms.list_resource_extensions()
-        l = []
-        for extension in extensions:
-            d = extension.__dict__
-            l.append(d)      
-        return l
-    
-    def list_role_sizes(self):
-        sizes = self.sms.list_role_sizes()
-        l = []
-        for size in sizes:
-            d = size.__dict__
-            l.append(d)      
-        return l
+            pprint.pprint(self.__dict__)
+            versions = self.sms.list_resource_extension_versions(self.publisher, self.extension)
+            l = []
+            for version in versions:
+                l.append(self.dict_from_response_obj(version))
+            return l
+        except Exception as e:
+            logger(message=repr(e))
+            return False
        
-    def list_service_certificates(self, **kwargs):
-        if self.verify_mandatory_params(method='list_service_certificates', params=kwargs):           
-            self.service = kwargs['service']
+    def list_service_certificates(self, *args, **kwargs):
+        arg = args[0]
+        try:
+            if not self.verify_mandatory_params(method=inspect.stack()[0][3], params=arg):
+                return False
+
+            self.service = arg.service[0]
+            pprint.pprint(self.__dict__)            
             certificates = self.sms.list_service_certificates(self.service)
             l = []
             for certificate in certificates:
-                d = certificate.__dict__
-                l.append(d)      
+                l.append(self.dict_from_response_obj(certificate))
             return l
-        else:
-            return None
+        except Exception as e:
+            logger(message=repr(e))
+            return False
 
-    def list_storage_accounts(self):
-        accounts = self.sms.list_storage_accounts()
-        l = []
-        for account in accounts:
-            d = account.__dict__
-            d['storage_service_properties'] = account.storage_service_properties.__dict__
-            l.append(d)      
-        return l
-    
-    def list_subscription_operations(self, start_date=None, end_date=None):
-        self.start_date = start_date or self.default_start_date
-        self.end_date = end_date or self.default_end_date        
-        operations = self.sms.list_subscription_operations(self.start_date, self.end_date)
-        l = []        
-        for operation in operations.subscription_operations:
-            d = {}
-            d['continuation_token'] = operations.continuation_token            
-            d['subscription_operations'] = operation.__dict__
-            d['subscription_operations']['operation_status'] = operation.operation_status.__dict__
-            d['subscription_operations']['operation_caller'] = operation.operation_caller.__dict__
-            l.append(d)
-        return l
-    
-    def list_subscriptions(self):
-        subscriptions = self.sms.list_subscriptions()
-        l = []
-        for subscription in subscriptions:
-            d = subscription.__dict__
-            l.append(d)      
-        return l
-    
-    def list_virtual_network_sites(self):
-        sites = self.sms.list_virtual_network_sites()
-        l = []
-        for site in sites:
-            d = site.__dict__
-            d['subnets'] = [el.__dict__ for el in site.subnets if el]
-            l.append(d)      
-        return l
-    
-    def list_vm_images(self):
-        images = self.sms.list_vm_images()
-        l = []
-        for image in images:
-            d = image.__dict__
-            d['os_disk_configuration'] = image.os_disk_configuration.__dict__
-            d['data_disk_configurations'] = [el.__dict__ for el in image.data_disk_configurations.data_disk_configurations if el]
-            l.append(d)      
-        return l
+    def list_subscription_operations(self, *args, **kwargs):
+        arg = args[0]
+        try:
+            if not self.verify_mandatory_params(method=inspect.stack()[0][3], params=arg):
+                return False
+
+            self.start_date = self.get_optional_params(key='start_date', params=arg, default=self.default_start_date)           
+            self.end_date = self.get_optional_params(key='end_date', params=arg, default=self.default_end_date)
+            
+            pprint.pprint(self.__dict__)
+            operations = self.sms.list_subscription_operations(self.start_date, self.end_date)
+            l = []        
+            for operation in operations.subscription_operations:
+                l.append(self.dict_from_response_obj(operation))
+            return l    
+        except Exception as e:
+            logger(message=repr(e))
+            return False
+
+    def dict_from_response_obj(self, *args, **kwargs):
         
-    def list_disks(self):
-        disks = self.sms.list_disks()
-        l = []
-        for disk in disks:            
-            d = disk.__dict__
-            if disk.attached_to is not None:
-                d['attached_to'] = disk.attached_to.__dict__
-            l.append(d)            
-        return l
+        def recurse_dict(d):
+            for k, v in d.iteritems():
+                if isinstance(v, dict):
+                    recurse_dict(v)
+            else:
+                return v
 
-    def list_hosted_services(self):        
-        services = self.sms.list_hosted_services()
-        l = []
-        for service in services:
-            d = service.__dict__
-            d['hosted_service_properties'] = service.hosted_service_properties.__dict__
-            l.append(d)            
-        return l
+        obj = args[0]
+
+        if not isinstance(obj, dict):
+            obj = self.dict_from_response_obj(obj.__dict__)
+
+        for k, v in obj.iteritems():
+            if '__dict__' in dir(v):
+                obj[k] = v.__dict__
+                obj = self.dict_from_response_obj(obj)
+            if isinstance(v, dict):
+                obj[k] = recurse_dict(v)            
+            if isinstance(v, list):
+                l = []
+                for el in v:
+                    if isinstance(el, unicode):
+                        l.append(el)
+                    elif not isinstance(el, dict):                        
+                        l.append(el.__dict__)                        
+                        obj[k] = l
+        return obj
+    
+    def list_collection(self, *args, **kwargs):
+        try:
+            arg = args[0]
+            if not self.verify_mandatory_params(method=arg.action[0], params=arg):
+                return False
+
+            self.action = arg.action[0]
+
+            pprint.pprint(self.__dict__)
+            method = getattr(self.sms, self.action)
+            results = method()
+            l = []
+            for item in results:
+                l.append(self.dict_from_response_obj(item))
+            return l
+        except Exception as e:
+            logger(message=repr(e))
+            return False        
 
     def perform_get(self, path=None):
         try:
@@ -1865,63 +1815,58 @@ class AzureCloudClass(BaseCloudHarnessClass):
     def swap_deployment(self):
         pass
 
-    def set_endpoint_acl(self, subscription_id=None, name=None,
-                         service=None, deployment=None, subnet=None,
-                         acls=None, eps=None, readonly=None):
+    def set_endpoint_acl(self, *args, **kwargs):
+        arg = args[0]
         try:
-            self.name = name
-            self.service = service
-            self.deployment = deployment
-            self.subnet = subnet
-            self.subscription_id = subscription_id
-            self.readonly = readonly
-            if not self.subscription_id: self.subscription_id = self.default_subscription_id
-            if self.name and self.service and self.deployment and self.subnet:
-                self.os = self.get_os_for_role(name=self.name, service=self.service, deployment=self.deployment)
-                if not acls: self.acls = self.default_acl
-                if not eps: self.eps = self.default_endpoints[self.os]
-                
-                ep_xml_template = \
-                '''
-                <PersistentVMRole xmlns="http://schemas.microsoft.com/windowsazure">
-                        <RoleName>%s</RoleName>
-                        <RoleType>PersistentVMRole</RoleType>
-                        <ConfigurationSets>
-                                <ConfigurationSet>
-                                        <ConfigurationSetType>NetworkConfiguration</ConfigurationSetType>
-                                        %s
-                                        <SubnetNames>
-                                                <SubnetName>%s</SubnetName>
-                                        </SubnetNames>
-                                </ConfigurationSet>
-                        </ConfigurationSets>
-                        <ResourceExtensionReferences />
-                        <DataVirtualHardDisks />
-                        <OSVirtualHardDisk />
-                        <RoleSize>Small</RoleSize>
-                        <ProvisionGuestAgent>true</ProvisionGuestAgent>
-                </PersistentVMRole>
-                ''' % (self.name,
-                       self.xml_endpoint_fragment_from_dict(self.eps,
-                                                            self.acls),
-                       self.subnet)
-                
-                path = '/%s/services/hostedservices/%s/deployments/%s/roles/%s' % (self.default_subscription_id,
-                                                                                   self.service,
-                                                                                   self.deployment,
-                                                                                   self.name)
-                pprint.pprint(self.__dict__)
-                if not self.readonly:                        
-                    return self.perform_put(path, ep_xml_template)
-                else:
-                    logger('%s: limited to read-only operations' % inspect.stack()[0][3])                
+            if not self.verify_mandatory_params(method=inspect.stack()[0][3], params=arg):
+                return False
+            
+            self.service = arg.service[0]
+            self.deployment = arg.deployment[0]  
+            self.name = arg.name[0]
+            self.os = self.get_os_for_role(name=self.name, service=self.service, deployment=self.deployment)
+            self.subnet = arg.subnet[0]
+            
+            self.readonly = self.get_optional_params(key='readonly', params=arg, default=self.default_readonly)
+            self.acls = self.get_optional_params(key='acls', params=arg, default=self.default_acl)
+            self.eps = self.get_optional_params(key='eps', params=arg, default=self.default_endpoints[self.os])
+            
+            ep_xml_template = \
+            '''
+            <PersistentVMRole xmlns="http://schemas.microsoft.com/windowsazure">
+                    <RoleName>%s</RoleName>
+                    <RoleType>PersistentVMRole</RoleType>
+                    <ConfigurationSets>
+                            <ConfigurationSet>
+                                    <ConfigurationSetType>NetworkConfiguration</ConfigurationSetType>
+                                    %s
+                                    <SubnetNames>
+                                            <SubnetName>%s</SubnetName>
+                                    </SubnetNames>
+                            </ConfigurationSet>
+                    </ConfigurationSets>
+                    <ResourceExtensionReferences />
+                    <DataVirtualHardDisks />
+                    <OSVirtualHardDisk />
+                    <RoleSize>Small</RoleSize>
+                    <ProvisionGuestAgent>true</ProvisionGuestAgent>
+            </PersistentVMRole>
+            ''' % (self.name,
+                   self.xml_endpoint_fragment_from_dict(self.eps, self.acls),
+                   self.subnet)
+            
+            path = '/%s/services/hostedservices/%s/deployments/%s/roles/%s' % (self.subscription_id,
+                                                                               self.service,
+                                                                               self.deployment,
+                                                                               self.name)
+            pprint.pprint(self.__dict__)
+            if not self.readonly:                        
+                return self.perform_put(path, ep_xml_template)
             else:
-                logger(pprint.pprint(self.__dict__))
-                logger('not all required parameters present for %s' % inspect.stack()[0][3])
-                sys.exit(1)
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])                
         except Exception as e:
             logger(message=repr(e))
-            return None
+            return False
 
     def timeout(self):
         return self.sms.timeout
@@ -1985,27 +1930,29 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=repr(e))
             return None
 
-    def update_role(self, **kwargs):
+    def update_role(self, *args, **kwargs):
+        arg = args[0]
         try:
-            if not self.verify_mandatory_params(method='update_role', params=kwargs):
+            if not self.verify_mandatory_params(method=inspect.stack()[0][3], params=arg):
                 return False
             
-            self.service = kwargs['service']
-            self.deployment = kwargs['deployment']     
-            self.name = kwargs['name']
+            self.service = arg.service[0]
+            self.deployment = arg.deployment[0]  
+            self.name = arg.name[0]
+            
             role = self.get_role(service=self.service, deployment=self.deployment, name=self.name)
             if role:
                 pprint.pprint(role)
                 self.os = self.get_os_for_role(service=self.service, deployment=self.deployment, name=self.name)
-                self.size = self.get_optional_params(key='size', params=kwargs, default=role['role_size'])
-                self.availset = self.get_optional_params(key='availset', params=kwargs, default=role['availability_set_name'])
-                self.subnet = self.get_optional_params(key='subnet', params=kwargs, default=role['configuration_sets'][0]['subnet_names'][0])
-                self.eps = self.get_optional_params(key='eps', params=kwargs, default=role['configuration_sets'][0]['input_endpoints'])
-                self.rextrs = self.get_optional_params(key='rextrs', params=kwargs, default=None)
-                self.os_disk = self.get_optional_params(key='os_disk', params=kwargs, default=role['os_virtual_hard_disk'])
-                self.data_disk = self.get_optional_params(key='data_disk', params=kwargs, default=role['data_virtual_hard_disks'])
-                self.async = self.get_optional_params(key='async', params=kwargs, default=self.default_async)
-                self.readonly = self.get_optional_params(key='readonly', params=kwargs, default=self.default_readonly)                
+                self.size = self.get_optional_params(key='size', params=arg, default=role['role_size'])
+                self.availset = self.get_optional_params(key='availset', params=arg, default=role['availability_set_name'])
+                self.subnet = self.get_optional_params(key='subnet', params=arg, default=role['configuration_sets'][0]['subnet_names'][0])
+                self.eps = self.get_optional_params(key='eps', params=arg, default=role['configuration_sets'][0]['input_endpoints'])
+                self.rextrs = self.get_optional_params(key='rextrs', params=arg, default=None)
+                self.os_disk = self.get_optional_params(key='os_disk', params=arg, default=role['os_virtual_hard_disk'])
+                self.data_disk = self.get_optional_params(key='data_disk', params=arg, default=role['data_virtual_hard_disks'])
+                self.async = self.get_optional_params(key='async', params=arg, default=self.default_async)
+                self.readonly = self.get_optional_params(key='readonly', params=arg, default=self.default_readonly)                
             else:
                 logger('%s: unable to retrieve properties for role %s' % (inspect.stack()[0][3], self.name))
                 return False
@@ -2020,7 +1967,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             eps = ConfigurationSetInputEndpoints()                
             eps = self.eps
 
-            # -- retrieve ACLs
+            # -- unpack ACLs
             # TBC
             
             net_config.input_endpoints = eps
@@ -2141,8 +2088,13 @@ if __name__ == '__main__':
     if BaseCloudHarnessClass.log: logging.basicConfig(filename=BaseCloudHarnessClass.log_file, format='%(asctime)s %(message)s', level=logging.INFO)
     arg = args()
     if arg.provider in ['azure']:
-        az = AzureCloudClass(subscription_id=arg.subscription_id[0],
-                             certificate_path=arg.certificate_path[0])
+        az = AzureCloudClass(subscription_id=arg.subscription_id[0], certificate_path=arg.certificate_path[0])
+
+        for action in az.actions:            
+            if action['action'] == arg.action[0] and action['collection']:
+                pprint.pprint(az.list_collection(arg))
+                sys.exit(0)
+        
         if arg.action[0] in ['x_ms_version']: pprint.pprint(az.x_ms_version())
         elif arg.action[0] in ['host']: pprint.pprint(az.host())
         elif arg.action[0] in ['cert_file']: pprint.pprint(az.cert_file())
@@ -2152,25 +2104,9 @@ if __name__ == '__main__':
         elif arg.action[0] in ['request_session']: pprint.pprint(az.request_session())
         elif arg.action[0] in ['requestid']: pprint.pprint(az.requestid())
         elif arg.action[0] in ['get_certificate_from_publish_settings']: az.get_certificate_from_publish_settings()
-        elif arg.action[0] in ['list_locations']: pprint.pprint(az.list_locations())
-        elif arg.action[0] in ['list_affinity_groups']: pprint.pprint(az.list_affinity_groups())
-        elif arg.action[0] in ['list_disks']: pprint.pprint(az.list_disks())
-        elif arg.action[0] in ['list_hosted_services']: pprint.pprint(az.list_hosted_services())
-        elif arg.action[0] in ['list_management_certificates']: pprint.pprint(az.list_management_certificates())            
-        elif arg.action[0] in ['list_operating_system_families']: pprint.pprint(az.list_operating_system_families())
-        elif arg.action[0] in ['list_os_images']: pprint.pprint(az.list_os_images())
-        elif arg.action[0] in ['list_reserved_ip_addresses']: pprint.pprint(az.list_reserved_ip_addresses())
-        elif arg.action[0] in ['list_resource_extension_versions']: pprint.pprint(az.list_resource_extension_versions(publisher=arg.publisher[0],
-                                                                                                                    extension=arg.extension[0]))
-        elif arg.action[0] in ['list_resource_extensions']: pprint.pprint(az.list_resource_extensions())
-        elif arg.action[0] in ['list_role_sizes']: pprint.pprint(az.list_role_sizes())
-        elif arg.action[0] in ['list_service_certificates']: pprint.pprint(az.list_service_certificates(service=(arg.service[0] if arg.service else None)))
-        elif arg.action[0] in ['list_storage_accounts']: pprint.pprint(az.list_storage_accounts())
-        elif arg.action[0] in ['list_subscription_operations']: pprint.pprint(az.list_subscription_operations(start_date=arg.start_date,
-                                                                                                            end_date=arg.end_date))
-        elif arg.action[0] in ['list_subscriptions']: pprint.pprint(az.list_subscriptions())
-        elif arg.action[0] in ['list_virtual_network_sites']: pprint.pprint(az.list_virtual_network_sites())
-        elif arg.action[0] in ['list_vm_images']: pprint.pprint(az.list_vm_images())               
+        elif arg.action[0] in ['list_resource_extension_versions']: pprint.pprint(az.list_resource_extension_versions(arg))
+        elif arg.action[0] in ['list_service_certificates']: pprint.pprint(az.list_service_certificates(arg))
+        elif arg.action[0] in ['list_subscription_operations']: pprint.pprint(az.list_subscription_operations(arg))
         elif arg.action[0] in ['check_hosted_service_name_availability']: pprint.pprint(az.check_hosted_service_name_availability(service=(arg.service[0] if arg.service else None)))
         elif arg.action[0] in ['check_storage_account_name_availability']: pprint.pprint(az.check_storage_account_name_availability(account=(arg.account[0] if arg.account else None)))
         elif arg.action[0] in ['create_affinity_group']: pprint.pprint(az.create_affinity_group(group=(arg.group[0] if arg.group else None),
@@ -2196,24 +2132,7 @@ if __name__ == '__main__':
                                                                                                                         password=(arg.password[0] if arg.password else None),
                                                                                                                         subnet=(arg.subnet[0] if arg.subnet else None),
                                                                                                                         account=(arg.account[0] if arg.account else None)))
-        elif arg.action[0] in ['add_role']: pprint.pprint(az.add_role(deployment=(arg.deployment[0] if arg.deployment else None),
-                                                                      service=(arg.service[0] if arg.service else None),
-                                                                      label=(arg.label[0] if arg.label else None),
-                                                                      size=(arg.size[0] if arg.size else None),
-                                                                      os=(arg.os[0] if arg.os else None),
-                                                                      image=(arg.image[0] if arg.image else None),
-                                                                      availset=(arg.availset[0] if arg.availset else None),
-                                                                      name=(arg.name[0] if arg.name else None),
-                                                                      username=(arg.username[0] if arg.username else None),
-                                                                      password=(arg.password[0] if arg.password else None),
-                                                                      ssh_public_key_cert=(arg.ssh_public_key_cert[0] if arg.ssh_public_key_cert else None),
-                                                                      disable_pwd_auth=arg.disable_pwd_auth,
-                                                                      ssh_auth=arg.ssh_auth,
-                                                                      subnet=(arg.subnet[0] if arg.subnet else None),
-                                                                      account=(arg.account[0] if arg.account else None),
-                                                                      async=arg.async,
-                                                                      readonly=arg.readonly,
-                                                                      custom_data_file=(arg.custom_data_file[0] if arg.custom_data_file else None)))
+        elif arg.action[0] in ['add_role']: pprint.pprint(az.add_role(arg))
         elif arg.action[0] in ['get_storage_account_properties']: pprint.pprint(az.get_storage_account_properties(account=(arg.account[0] if arg.account else None)))
         elif arg.action[0] in ['get_deployment_by_slot']: pprint.pprint(az.get_deployment_by_slot(service=(arg.service[0] if arg.service else None),
                                                                                                   slot=(arg.slot[0] if arg.slot else None)))
@@ -2243,12 +2162,7 @@ if __name__ == '__main__':
                                                                                                         status=(arg.status[0] if arg.status else None),
                                                                                                         wait=(arg.wait[0] if arg.wait else None),
                                                                                                         timeout=(arg.timeout[0] if arg.timeout else None)))
-        elif arg.action[0] in ['set_endpoint_acl']: pprint.pprint(az.set_endpoint_acl(subscription_id=(arg.subscription_id[0] if arg.subscription_id else None),
-                                                                                      service=(arg.service[0] if arg.service else None),
-                                                                                      deployment=(arg.deployment[0] if arg.deployment else None),
-                                                                                      name=(arg.name[0] if arg.name else None),
-                                                                                      subnet=(arg.subnet[0] if arg.subnet else None),
-                                                                                      readonly=arg.readonly))
+        elif arg.action[0] in ['set_endpoint_acl']: pprint.pprint(az.set_endpoint_acl(arg))
         elif arg.action[0] in ['get_endpoint_acl']: pprint.pprint(az.get_endpoint_acl(subscription_id=(arg.subscription_id[0] if arg.subscription_id else None),
                                                                                       service=(arg.service[0] if arg.service else None),
                                                                                       deployment=(arg.deployment[0] if arg.deployment else None),
@@ -2282,15 +2196,7 @@ if __name__ == '__main__':
                                                                                                     thumbprint=(arg.thumbprint[0] if arg.thumbprint else None),
                                                                                                     algorithm=(arg.algorithm[0] if arg.algorithm else None)))
         elif arg.action[0] in ['get_storage_account_keys']: pprint.pprint(az.get_storage_account_keys(account=(arg.account[0] if arg.account else None)))
-        elif arg.action[0] in ['update_role']:
-            pprint.pprint(az.update_role(deployment=(arg.deployment[0] if arg.deployment else None),
-                                         service=(arg.service[0] if arg.service else None),
-                                         name=(arg.name[0] if arg.name else None),
-                                         size=(arg.size[0] if arg.size else None),                                             
-                                         availset=(arg.availset[0] if arg.availset else None),
-                                         subnet=(arg.subnet[0] if arg.subnet else None),
-                                         async=arg.async,
-                                         readonly=arg.readonly))
+        elif arg.action[0] in ['update_role']: pprint.pprint(az.update_role(arg))
         elif arg.action[0] in ['add_customscript_extension']:
             az.os = az.get_os_for_role(service=(arg.service[0] if arg.service else None),
                                        deployment=(arg.deployment[0] if arg.deployment else None),
@@ -2352,8 +2258,7 @@ if __name__ == '__main__':
             pprint.pprint(az.get_role_properties_xml(deployment=arg.deployment[0] if arg.deployment else None,
                                                      service=arg.service[0] if arg.service else None,
                                                      name=arg.name[0] if arg.name else None))
-        elif arg.action[0] in ['add_data_disk']:
-            pprint.pprint(az.add_data_disk(arg))
+        elif arg.action[0] in ['add_data_disk']: pprint.pprint(az.add_data_disk(arg))
         else:
             logger(message='Unknown action' % arg.action)
             sys.exit(1)
