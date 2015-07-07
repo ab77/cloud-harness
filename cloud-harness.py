@@ -828,12 +828,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             self.os = self.get_params(key='os', params=arg, default=None)            
             self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)            
-            self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)            
-       
+            self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)
+                   
             pub_config = dict()
             pub_config_key = 'CustomScriptExtensionPublicConfigParameter'
             if self.os == 'Windows':
-                self.script = (script if script else self.default_windows_customscript_name)
+                self.script = self.get_params(key='script', params=arg, default=self.default_windows_customscript_name)
                 pub_config['fileUris'] = ['%s' % self.generate_signed_blob_url(account=self.account,
                                                                                container=self.container,
                                                                                script=self.script)]
@@ -851,7 +851,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if self.os == 'Linux':
                 pri_config_key = 'CustomScriptExtensionPrivateConfigParameter'
                 pri_config = dict()
-                self.script = (script if script else self.default_linux_customscript_name)
+                self.script = self.get_params(key='script', params=arg, default=self.default_linux_customscript_name)
                 self.extension = 'CustomScriptForLinux'
                 self.publisher = 'Microsoft.OSTCExtensions'
                 rexts = self.list_resource_extension_versions(self.__dict__)
