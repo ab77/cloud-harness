@@ -188,6 +188,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'sub_id', 'params': [], 'collection': False},
                {'action': 'request_session', 'params': [], 'collection': False},
                {'action': 'requestid', 'params': [], 'collection': False},
+               {'action': 'list_collection', 'params': ['action'], 'collection': False},
                {'action': 'list_affinity_groups', 'params': [], 'collection': True},
                {'action': 'list_disks', 'params': [], 'collection': True},
                {'action': 'list_hosted_services', 'params': [], 'collection': True},
@@ -205,6 +206,33 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'list_subscriptions', 'params': [], 'collection': True},
                {'action': 'list_virtual_network_sites', 'params': ['action'], 'collection': True},
                {'action': 'list_vm_images', 'params': [], 'collection': True},
+               {'action': 'add_resource_extension', 'params': ['deployment', 'service', 'name', 'extension'], 'collection': False},
+               {'action': 'add_role', 'params': ['deployment', 'service', 'os', 'name', 'image', 'subnet', 'account'], 'collection': False},
+               {'action': 'add_data_disk', 'params': ['service', 'deployment', 'name'], 'collection': False},
+               {'action': 'add_disk', 'params': [], 'collection': False},
+               {'action': 'add_dns_server', 'params': [], 'collection': False},
+               {'action': 'add_management_certificate', 'params': [], 'collection': False},
+               {'action': 'add_os_image', 'params': [], 'collection': False},
+               {'action': 'add_service_certificate', 'params': [], 'collection': False},
+               {'action': 'build_epacls_dict_from_xml', 'params': ['deployment', 'service', 'name'], 'collection': False},
+               {'action': 'build_chefclient_resource_extension', 'params': ['os'], 'collection': False},
+               {'action': 'build_customscript_resource_extension', 'params': ['os'], 'collection': False},
+               {'action': 'build_vmaccess_resource_extension', 'params': ['os'], 'collection': False},
+               {'action': 'build_ospatching_resource_extension', 'params': ['os'], 'collection': False},
+               {'action': 'build_resource_extension_dict', 'params': ['os', 'extension', 'publisher', 'version'], 'collection': False},
+               {'action': 'build_resource_extensions_xml_from_dict', 'params': ['extensions'], 'collection': False},
+               {'action': 'check_hosted_service_name_availability', 'params': [], 'collection': False},
+               {'action': 'check_storage_account_name_availability', 'params': [], 'collection': False},
+               {'action': 'create_affinity_group', 'params': [], 'collection': False},
+               {'action': 'create_virtual_machine_deployment', 'params': [], 'collection': False},
+               {'action': 'change_deployment_configuration', 'params': [], 'collection': False},
+               {'action': 'capture_role', 'params': [], 'collection': False},
+               {'action': 'capture_vm_image', 'params': [], 'collection': False},
+               {'action': 'delete_affinity_group', 'params': [], 'collection': False},
+               {'action': 'delete_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
+               {'action': 'delete_disk', 'params': [], 'collection': False},
+               {'action': 'delete_deployment', 'params': [], 'collection': False},
+               {'action': 'delete_dns_server', 'params': [], 'collection': False},
                {'action': 'get_certificate_from_publish_settings', 'params': [], 'collection': False},
                {'action': 'get_storage_account_properties', 'params': [], 'collection': False},
                {'action': 'get_deployment_by_slot', 'params': [], 'collection': False},
@@ -223,36 +251,26 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'get_affinity_group_properties', 'params': [], 'collection': False},
                {'action': 'get_hosted_service_properties', 'params': [], 'collection': False},
                {'action': 'get_disk_by_role_name', 'params': ['service', 'deployment', 'name'], 'collection': False},
-               {'action': 'get_endpoint_acl_xml', 'params': ['service', 'deployment', 'name'], 'collection': False},
-               {'action': 'check_hosted_service_name_availability', 'params': [], 'collection': False},
-               {'action': 'check_storage_account_name_availability', 'params': [], 'collection': False},
-               {'action': 'create_affinity_group', 'params': [], 'collection': False},
-               {'action': 'create_virtual_machine_deployment', 'params': [], 'collection': False},
-               {'action': 'delete_affinity_group', 'params': [], 'collection': False},
-               {'action': 'update_affinity_group', 'params': [], 'collection': False},
-               {'action': 'add_role', 'params': ['deployment', 'service', 'os', 'name', 'image', 'subnet', 'account'], 'collection': False},
-               {'action': 'delete_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
-               {'action': 'delete_disk', 'params': [], 'collection': False},
-               {'action': 'delete_deployment', 'params': [], 'collection': False},
-               {'action': 'delete_dns_server', 'params': [], 'collection': False},
-               {'action': 'wait_for_operation_status', 'params': [], 'collection': False},
-               {'action': 'perform_get', 'params': [], 'collection': False},
+               {'action': 'get_os_for_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
+               {'action': 'get_objs_for_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
+               {'action': 'perform_get', 'params': ['path'], 'collection': False},
                {'action': 'perform_put', 'params': ['path', 'body'], 'collection': False},
-               {'action': 'perform_delete', 'params': [], 'collection': False},
-               {'action': 'perform_post', 'params': [], 'collection': False},
-               {'action': 'set_endpoint_acl', 'params': ['service', 'deployment', 'name', 'subnet'], 'collection': False},
+               {'action': 'perform_delete', 'params': ['path'], 'collection': False},
+               {'action': 'perform_post', 'params': ['path', 'body'], 'collection': False},
+               {'action': 'set_epacls', 'params': ['service', 'deployment', 'name', 'subnet'], 'collection': False},
+               {'action': 'get_epacls', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'reboot_role_instance', 'params': [], 'collection': False},
                {'action': 'start_role', 'params': [], 'collection': False},
                {'action': 'start_roles', 'params': [], 'collection': False},
                {'action': 'restart_role', 'params': [], 'collection': False},
+               {'action': 'rebuild_role_instance', 'params': [], 'collection': False},
+               {'action': 'regenerate_storage_account_keys', 'params': [], 'collection': False},
+               {'action': 'reimage_role_instance', 'params': [], 'collection': False},
+               {'action': 'rollback_update_or_upgrade', 'params': [], 'collection': False},
+               {'action': 'swap_deployment', 'params': [], 'collection': False},
                {'action': 'shutdown_role', 'params': [], 'collection': False},
                {'action': 'shutdown_roles', 'params': [], 'collection': False},
-               {'action': 'add_data_disk', 'params': ['service', 'deployment', 'name'], 'collection': False},
-               {'action': 'add_disk', 'params': [], 'collection': False},
-               {'action': 'add_dns_server', 'params': [], 'collection': False},
-               {'action': 'add_management_certificate', 'params': [], 'collection': False},
-               {'action': 'add_os_image', 'params': [], 'collection': False},
-               {'action': 'add_service_certificate', 'params': [], 'collection': False},
+               {'action': 'update_affinity_group', 'params': [], 'collection': False},
                {'action': 'update_data_disk', 'params': [], 'collection': False},
                {'action': 'update_deployment_status', 'params': [], 'collection': False},
                {'action': 'update_disk', 'params': [], 'collection': False},
@@ -262,26 +280,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'update_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
                {'action': 'update_storage_account', 'params': [], 'collection': False},
                {'action': 'update_vm_image', 'params': [], 'collection': False},
-               {'action': 'capture_role', 'params': [], 'collection': False},
-               {'action': 'capture_vm_image', 'params': [], 'collection': False},
                {'action': 'upgrade_deployment', 'params': [], 'collection': False},
-               {'action': 'change_deployment_configuration', 'params': [], 'collection': False},
-               {'action': 'rebuild_role_instance', 'params': [], 'collection': False},
-               {'action': 'regenerate_storage_account_keys', 'params': [], 'collection': False},
-               {'action': 'reimage_role_instance', 'params': [], 'collection': False},
-               {'action': 'rollback_update_or_upgrade', 'params': [], 'collection': False},
-               {'action': 'swap_deployment', 'params': [], 'collection': False},
+               {'action': 'wait_for_operation_status', 'params': [], 'collection': False},
                {'action': 'walk_upgrade_domain', 'params': [], 'collection': False},
-               {'action': 'add_chefclient_extension', 'params': ['deployment', 'service', 'name'], 'collection': False},
-               {'action': 'add_customscript_extension', 'params': [], 'collection': False},
-               {'action': 'add_vmaccess_extension', 'params': [], 'collection': False},
-               {'action': 'add_ospatching_extension', 'params': [], 'collection': False},
-               {'action': 'get_os_for_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
-               {'action': 'get_objs_for_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
-               {'action': 'build_chefclient_resource_extension', 'params': ['os'], 'collection': False},
-               {'action': 'xml_endpoint_fragment_from_dict', 'params': ['eps', 'acls'], 'collection': False},
-               {'action': 'list_collection', 'params': ['action'], 'collection': False},
-               {'action': 'build_endpoint_acl_dict_for_role', 'params': ['service', 'deployment', 'name'], 'collection': False}]
+               {'action': 'xml_endpoint_fragment_from_dict', 'params': ['epacls'], 'collection': False}]
 
     default_end_date = datetime.now()
     default_start_date = default_end_date - timedelta(days=7)
@@ -347,7 +349,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
         self.subscription_id = subscription_id or self.default_subscription_id
         self.certificate_path = certificate_path or self.default_certificate_path
         if not self.subscription_id or not self.certificate_path:
-            logger('__init__() requires a subscription_id and certificate_path, None specified')
+            logger('%s: requires a subscription_id and certificate_path' % inspect.stack()[0][3])
             sys.exit(1)
         else:
             self.sms = ServiceManagementService(self.subscription_id, self.certificate_path, request_session=self.set_proxy())
@@ -378,7 +380,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
         except KeyError:
             return None
 
-    def add_chefclient_extension(self, *args):
+    def add_resource_extension(self, *args):
         try:
             if not args: return False
             arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
@@ -387,16 +389,31 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.service = self.get_params(key='service', params=arg, default=None)
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.name = self.get_params(key='name', params=arg, default=None)
-            
-            self.os = self.get_os_for_role(service=self.service, deployment=self.deployment, name=self.name)
+            self.extension = self.get_params(key='extension', params=arg, default=None)
+            self.verbose = self.get_params(key='verbose', params=arg, default=self.default_verbose)
+
+            self.os = self.get_os_for_role(service=self.service, deployment=self.deployment, name=self.name, verbose=False)
+           
             if self.os:
-                arg['rextrs'] = self.build_chefclient_resource_extension(os=self.os)
-                self.update_role(arg)
+                if self.extension == 'ChefClient':                    
+                    self.rextrs = self.build_chefclient_resource_extension(os=self.os)
+                    return self.update_role(self.__dict__)
+                elif self.extension == 'CustomScript':
+                    self.rextrs = az.build_customscript_resource_extension(os=self.os)
+                    return self.update_role(self.__dict__)
+                elif self.extension == 'VMAccessAgent':
+                    self.rextrs = az.build_vmaccess_resource_extension(os=self.os)
+                    return self.update_role(self.__dict__)
+                elif self.extension == 'OSPatching':
+                    self.rextrs = az.build_ospatching_resource_extension(os=self.os)
+                    return self.update_role(self.__dict__)                
+                else:
+                    logger('%s: unsupported extension %s' % (inspect.stack()[0][3], self.extension))
             else:
                 return False
         except Exception as e:
             logger(message=traceback.print_exc())
-            return False    
+            return False
     
     def add_role(self, *args):
         try:
@@ -419,13 +436,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.size = self.get_params(key='size', params=arg, default=self.default_size)
             self.username = self.get_params(key='username', params=arg, default=self.default_user_name)        
             self.eps = self.get_params(key='eps', params=arg, default=self.default_endpoints)
-            self.acls = self.get_params(key='acls', params=arg, default=self.build_acl_dict())
             self.rextrs = self.get_params(key='rextrs', params=arg, default=None)
             self.ssh_public_key_cert = self.get_params(key='ssh_public_key_cert', params=arg, default=self.default_ssh_public_key_cert)
-            self.async = self.get_params(key='async', params=arg, default=self.default_async)
+            self.async = False
             self.readonly = self.get_params(key='readonly', params=arg, default=self.default_readonly)                
             self.ssh_auth = self.get_params(key='ssh_auth', params=arg, default=self.default_ssh_auth)                
-            self.disable_pwd_auth = self.get_params(key='disable_pwd_auth', params=arg, default=self.default_disable_pwd_auth)                
+            self.disable_pwd_auth = self.get_params(key='disable_pwd_auth', params=arg, default=self.default_disable_pwd_auth)
+            self.verbose = self.get_params(key='verbose', params=arg, default=self.default_verbose)
  
             if self.os == 'Windows':
                 self.custom_data_file = self.get_params(key='custom_data_file', params=arg, default=self.default_windows_custom_data_file)
@@ -530,8 +547,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                  disk_name=None,
                                                  os=None,
                                                  remote_source_image_link=None)
-
-            self.verbose = self.get_params(key='verbose', params=arg, default=self.default_verbose)
+            
             if self.verbose: pprint.pprint(self.__dict__)            
 
             if not self.readonly:
@@ -545,11 +561,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     operation = self.sms.get_operation_status(result.request_id)
                     d['result'] = result.__dict__
                     d['operation'] = operation.__dict__
-                    if not self.async:
-                        pprint.pprint(d)                        
-                        return self.wait_for_operation_status(result.request_id)
-                    else:
-                        return d
+                    d['operation_result'] = self.wait_for_operation_status(result.request_id)
+                    result = self.set_epacls(self.__dict__)
+                    d['result_set_epacls'] = result
+                    return d
                 except (WindowsAzureConflictError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
@@ -582,6 +597,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.disk_size = self.get_params(key='disk_size', params=arg, default=self.default_disk_size)            
             self.async = self.get_params(key='async', params=arg, default=self.default_async)
             self.readonly = self.get_params(key='readonly', params=arg, default=self.default_readonly)
+            self.verbose = self.get_params(key='verbose', params=arg, default=self.default_verbose)
 
             ts = mkdate(datetime.now(), '%Y-%m-%d-%H-%M-%S-%f')
             if self.image:
@@ -596,9 +612,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                                                            self.service,
                                                                                            self.disk,
                                                                                            ts,
-                                                                                           self.lun)   
-
-            self.verbose = self.get_params(key='verbose', params=arg, default=self.default_verbose)
+                                                                                           self.lun)
             if self.verbose: pprint.pprint(self.__dict__)
 
             if not self.readonly:
@@ -615,8 +629,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     d['result'] = result.__dict__
                     d['operation'] = operation.__dict__
                     if not self.async:
-                        pprint.pprint(d)
-                        return self.wait_for_operation_status(result.request_id)
+                        d['operation_result'] = self.wait_for_operation_status(result.request_id)
+                        return d
                     else:
                         return d
                 except (WindowsAzureConflictError) as e:
@@ -628,7 +642,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
         
-    def add_disk(self, **kwargs):
+    def add_disk(self):
         pass
         
     def add_dns_server(self, service=None, deployment=None, name=None, ipaddr=None):
@@ -663,9 +677,14 @@ class AzureCloudClass(BaseCloudHarnessClass):
     def add_service_certificate(self):
         pass
         
-    def build_resource_extensions_xml_from_dict(self, extensions=None):
-        self.extensions = (extensions if extensions else None)
-        if self.extensions:
+    def build_resource_extensions_xml_from_dict(self, **kwargs):
+        try:
+            if not kwargs: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=kwargs)
+            if not arg: return False
+
+            self.extensions = self.get_params(key='extensions', params=arg, default=None)
+   
             rers = ResourceExtensionReferences()
             for ext in self.extensions:
                 rer = ResourceExtensionReference()
@@ -685,17 +704,26 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 rers.resource_extension_references.append(rer)
             rextrs = rers
             return rextrs
-        else:
-            return None
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False 
 
-    def build_resource_extension_dict(self, os=None, extension=None, publisher=None,
-                                      version=None, pub_config=None, pri_config=None,
-                                      pub_config_key=None, pri_config_key=None):
-        self.os = (os if os else self.os)
-        self.extension = (extension if extension else self.extension)
-        self.publisher = (publisher if publisher else self.publisher)
-        self.version = (version if version else self.version)
-        if self.os and self.extension and self.publisher and self.version:
+    def build_resource_extension_dict(self, **kwargs):
+        try:
+            if not kwargs: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=kwargs)
+            if not arg: return False
+
+            self.os = self.get_params(key='os', params=arg, default=None)
+            self.extension = self.get_params(key='extension', params=arg, default=self.default_extension)
+            self.publisher = self.get_params(key='publisher', params=arg, default=self.default_publisher)
+            self.version = self.get_params(key='version', params=arg, default=None)
+
+            pub_config_key = self.get_params(key='pub_config_key', params=arg, default=None)
+            pri_config_key = self.get_params(key='pri_config_key', params=arg, default=None)
+            pub_config = self.get_params(key='pub_config', params=arg, default=None)
+            pri_config = self.get_params(key='pri_config', params=arg, default=None)
+            
             rext = {self.os: [{'Name': self.extension,
                                'ReferenceName': self.extension,
                                'Publisher': self.publisher,
@@ -720,8 +748,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                        'Type': 'Private',
                                                        'Value': pri_config})                    
             return rext
-        else:
-            return None
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False        
 
     def build_chefclient_resource_extension(self, **kwargs):
         try:
@@ -791,229 +820,217 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False             
 
-    def build_customscript_resource_extension(self, script=None, os=None,
-                                              account=None, container=None):
-        try:            
-            self.os = (os if os else self.os)
-            self.account = (account if account else self.default_storage_account)
-            self.container = (container if container else self.default_storage_container)
-            if self.os and self.container and self.account:                
-                pub_config = dict()
-                pub_config_key = 'CustomScriptExtensionPublicConfigParameter'
-                if self.os == 'Windows':
-                    self.script = (script if script else self.default_windows_customscript_name)
-                    pub_config['fileUris'] = ['%s' % self.generate_signed_blob_url(account=self.account,
-                                                                                   container=self.container,
-                                                                                   script=self.script)]
-                    self.extension = 'CustomScriptExtension'
-                    self.publisher = 'Microsoft.Compute'
-                    rexts = self.list_resource_extension_versions(self.__dict__)
-                    version = None
-                    for rext in rexts:
-                        version = rext['version']                
-                    self.version = version.split('.')[0] + '.*'
-                    pub_config['commandToExecute'] = 'powershell.exe -ExecutionPolicy Unrestricted -File %s' % self.script
-                    pub_config['timestamp'] = '%s' % timegm(time.gmtime())                    
-                    rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
-                                                              pub_config_key=pub_config_key, pub_config=pub_config)
-                if self.os == 'Linux':
-                    pri_config_key = 'CustomScriptExtensionPrivateConfigParameter'
-                    pri_config = dict()
-                    self.script = (script if script else self.default_linux_customscript_name)
-                    self.extension = 'CustomScriptForLinux'
-                    self.publisher = 'Microsoft.OSTCExtensions'
-                    rexts = self.list_resource_extension_versions(self.__dict__)
-                    version = None
-                    for rext in rexts:
-                        version = rext['version']          
-                    self.version = version.split('.')[0] + '.*' 
-                    pub_config['fileUris'] = ['%s' % self.generate_signed_blob_url(account=self.account,
-                                                                                   container=self.container,
-                                                                                   script=self.script)]               
-                    pub_config['commandToExecute'] = './%s' % self.script
-                    pub_config['timestamp'] = '%s' % timegm(time.gmtime())
-                    pri_config['storageAccountName'] = self.account
-                    pri_config['storageAccountKey'] = self.get_storage_account_keys(account=self.account)['storage_service_keys']['primary']
-                    rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
-                                                              pub_config_key=pub_config_key, pub_config=pub_config,
-                                                              pri_config_key=pri_config_key, pri_config=pri_config)
-                return self.build_resource_extensions_xml_from_dict(extensions=rext[self.os])
-            else:
-                logger(pprint.pprint(self.__dict__))
-                logger('not all required parameters present for %s' % inspect.stack()[0][3])
-                sys.exit(1)
+    def build_customscript_resource_extension(self, **kwargs):
+        try:
+            if not kwargs: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=kwargs)
+            if not arg: return False
+
+            self.os = self.get_params(key='os', params=arg, default=None)            
+            self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)            
+            self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)            
+       
+            pub_config = dict()
+            pub_config_key = 'CustomScriptExtensionPublicConfigParameter'
+            if self.os == 'Windows':
+                self.script = (script if script else self.default_windows_customscript_name)
+                pub_config['fileUris'] = ['%s' % self.generate_signed_blob_url(account=self.account,
+                                                                               container=self.container,
+                                                                               script=self.script)]
+                self.extension = 'CustomScriptExtension'
+                self.publisher = 'Microsoft.Compute'
+                rexts = self.list_resource_extension_versions(self.__dict__)
+                version = None
+                for rext in rexts:
+                    version = rext['version']                
+                self.version = version.split('.')[0] + '.*'
+                pub_config['commandToExecute'] = 'powershell.exe -ExecutionPolicy Unrestricted -File %s' % self.script
+                pub_config['timestamp'] = '%s' % timegm(time.gmtime())                    
+                rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
+                                                          pub_config_key=pub_config_key, pub_config=pub_config)
+            if self.os == 'Linux':
+                pri_config_key = 'CustomScriptExtensionPrivateConfigParameter'
+                pri_config = dict()
+                self.script = (script if script else self.default_linux_customscript_name)
+                self.extension = 'CustomScriptForLinux'
+                self.publisher = 'Microsoft.OSTCExtensions'
+                rexts = self.list_resource_extension_versions(self.__dict__)
+                version = None
+                for rext in rexts:
+                    version = rext['version']          
+                self.version = version.split('.')[0] + '.*' 
+                pub_config['fileUris'] = ['%s' % self.generate_signed_blob_url(account=self.account,
+                                                                               container=self.container,
+                                                                               script=self.script)]               
+                pub_config['commandToExecute'] = './%s' % self.script
+                pub_config['timestamp'] = '%s' % timegm(time.gmtime())
+                pri_config['storageAccountName'] = self.account
+                pri_config['storageAccountKey'] = self.get_storage_account_keys(account=self.account)['storage_service_keys']['primary']
+                rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
+                                                          pub_config_key=pub_config_key, pub_config=pub_config,
+                                                          pri_config_key=pri_config_key, pri_config=pri_config)
+            return self.build_resource_extensions_xml_from_dict(extensions=rext[self.os])
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
 
-    def build_vmaccess_resource_extension(self, username=None, os=None, reset_ssh=True,
-                                          password=None, ssh_public_key=None, vmaop=None,
-                                          pwd_expiry=None):
-        self.reset_ssh = reset_ssh
-        self.os = (os if os else self.os)
-        self.username = (username if username else self.default_user_name)
-        self.password = (password if password else self.password)
-        self.vmaop = (vmaop if vmaop else self.default_vmaop)
-        self.ssh_public_key = (ssh_public_key if ssh_public_key else self.default_ssh_public_key)
-        self.pwd_expiry = (pwd_expiry if pwd_expiry else self.default_pwd_expiry)
-        try:   
-            if self.os:
+    def build_vmaccess_resource_extension(self, **kwargs):
+        try:
+            if not kwargs: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=kwargs)
+            if not arg: return False
+
+            self.os = self.get_params(key='os', params=arg, default=None)
+            self.username = self.get_params(key='username', params=arg, default=self.default_user_name)
+            self.password = self.get_params(key='password', params=arg, default=None)
+            self.vmaop = self.get_params(key='vmaop', params=arg, default=self.default_vmaop)
+            self.ssh_public_key = self.get_params(key='ssh_public_key', params=arg, default=self.default_ssh_public_key)
+            self.default_ssh_public_key = self.get_params(key='default_ssh_public_key', params=arg, default=self.default_ssh_public_key)
+            self.pwd_expiry = self.get_params(key='pwd_expiry', params=arg, default=self.default_pwd_expiry)
+
+            pub_config = dict()
+            pri_config = dict() 
+            if self.os == 'Windows':                   
+                pub_config_key = 'VMAccessAgentPublicConfigParameter'
+                pri_config_key = 'VMAccessAgentPrivateConfigParameter'
+                self.extension = 'VMAccessAgent'
+                self.publisher = 'Microsoft.Compute'
+                rexts = self.list_resource_extension_versions(self.__dict__)
+                version = None
+                for rext in rexts:
+                    version = rext['version']          
+                self.version = version.split('.')[0] + '.*'
+                pub_config['timestamp'] = '%s' % timegm(time.gmtime())
+
+                if self.vmaop == 'ResetRDPConfig':
+                    pass                    
+
+                elif self.vmaop == 'ResetPassword':
+                    if self.password:
+                        pub_config['UserName'] = self.username
+                        pri_config['Password'] = self.password
+                        pri_config['expiration'] = mkdate(datetime.now() + timedelta(days=self.pwd_expiry), '%Y-%m-%d')
+                    else:                            
+                        logger(pprint.pprint(self.__dict__))
+                        logger('VMAccess operation %s requires a new password' % self.vmaop)
+                        sys.exit(1)
+                else:
+                    logger(pprint.pprint(self.__dict__))
+                    logger('%s is not a supported VMAccess operation' % self.vmaop)
+                    sys.exit(1)
+                rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
+                                                          pub_config_key=pub_config_key, pub_config=pub_config,
+                                                          pri_config_key=pri_config_key, pri_config=pri_config)
+            
+            if self.os == 'Linux':
+                pub_config_key = 'VMAccessForLinuxPublicConfigParameter'
+                pri_config_key = 'VMAccessForLinuxPrivateConfigParameter'
+                self.extension = 'VMAccessForLinux'
+                self.publisher = 'Microsoft.OSTCExtensions'
+                rexts = self.list_resource_extension_versions(self.__dict__)
+                version = None
+                for rext in rexts:
+                    version = rext['version']          
+                self.version = version.split('.')[0] + '.*'
+                pub_config['timestamp'] = '%s' % timegm(time.gmtime())
+                with open(self.ssh_public_key, 'rb') as cf:
+                    ssh_cert = cf.read()                        
+                if self.vmaop == 'ResetSSHKey':
+                    pri_config['username'] = self.username
+                    pri_config['ssh_key'] = ssh_cert
+                elif self.vmaop == 'ResetPassword':
+                    if self.password:
+                        pri_config['username'] = self.username
+                        pri_config['password'] = self.password
+                        pri_config['expiration'] = mkdate(datetime.now() + timedelta(days=self.pwd_expiry), '%Y-%m-%d')
+                    else:                            
+                        logger(pprint.pprint(self.__dict__))
+                        logger('VMAccess operation %s requires a new password' % self.vmaop)
+                        sys.exit(1)
+                elif self.vmaop == 'ResetSSHKeyAndPassword':
+                    if self.password:
+                        pri_config['username'] = self.username
+                        pri_config['password'] = self.password
+                        pri_config['ssh_key'] = ssh_cert
+                    else:                            
+                        logger(pprint.pprint(self.__dict__))
+                        logger('VMAccess operation %s requires a new password' % self.vmaop)
+                        sys.exit(1)
+                elif self.vmaop == 'DeleteUser':
+                    pri_config['remove_user'] = self.username
+                elif self.vmaop == 'ResetSSHConfig':
+                    pri_config['reset_ssh'] = True
+                else:
+                    logger(pprint.pprint(self.__dict__))
+                    logger('%s is not a supported VMAccess operation' % self.vmaop)
+                    sys.exit(1)
+                    
+                rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
+                                                          pri_config_key=pri_config_key, pri_config=pri_config)
+            return self.build_resource_extensions_xml_from_dict(extensions=rext[self.os])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
+    def build_ospatching_resource_extension(self, **kwargs):
+        try:
+            if not kwargs: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=kwargs)
+            if not arg: return False
+
+            self.os = self.get_params(key='os', params=arg, default=None)
+            self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
+            self.patching_disabled = self.get_params(key='patching_disabled', params=arg, default=False)
+            self.patching_stop = self.get_params(key='patching_stop', params=arg, default=False)
+            self.patching_local = self.get_params(key='patching_local', params=arg, default=False)
+            self.patching_oneoff = self.get_params(key='patching_oneoff', params=arg, default=False)
+            self.patching_reboot_after = self.get_params(key='patching_reboot_after', params=arg, default=self.default_patching_reboot_after)
+            self.patching_interval = self.get_params(key='patching_interval', params=arg, default=self.default_patching_interval)
+            self.patching_day = self.get_params(key='patching_day', params=arg, default=self.default_patching_day)
+            self.patching_starttime = self.get_params(key='patching_starttime', params=arg, default=self.default_patching_starttime)
+            self.patching_category = self.get_params(key='patching_category', params=arg, default=self.default_patching_category)
+            self.patching_duration = self.get_params(key='patching_duration', params=arg, default=self.default_patching_duration)
+            self.patching_healthy_test_script = self.get_params(key='patching_healthy_test_script', params=arg, default=self.default_patching_healthy_test_script)
+            self.patching_idle_test_script = self.get_params(key='patching_idle_test_script', params=arg, default=self.default_patching_idle_test_script)
+
+            if self.os == 'Windows':
+                logger(pprint.pprint(self.__dict__))
+                logger('%s is not supported in Windows' % inspect.stack()[0][3])
+                sys.exit(1)
+            
+            if self.os == 'Linux':
                 pub_config = dict()
                 pri_config = dict() 
-                if self.os == 'Windows':                   
-                    pub_config_key = 'VMAccessAgentPublicConfigParameter'
-                    pri_config_key = 'VMAccessAgentPrivateConfigParameter'
-                    self.extension = 'VMAccessAgent'
-                    self.publisher = 'Microsoft.Compute'
-                    rexts = self.list_resource_extension_versions(self.__dict__)
-                    version = None
-                    for rext in rexts:
-                        version = rext['version']          
-                    self.version = version.split('.')[0] + '.*'
-                    pub_config['timestamp'] = '%s' % timegm(time.gmtime())
-
-                    if self.vmaop == 'ResetRDPConfig':
-                        pass                    
-
-                    elif self.vmaop == 'ResetPassword':
-                        if self.password:
-                            pub_config['UserName'] = self.username
-                            pri_config['Password'] = self.password
-                            pri_config['expiration'] = mkdate(datetime.now() + timedelta(days=self.pwd_expiry), '%Y-%m-%d')
-                        else:                            
-                            logger(pprint.pprint(self.__dict__))
-                            logger('VMAccess operation %s requires a new password' % self.vmaop)
-                            sys.exit(1)
-                    else:
-                        logger(pprint.pprint(self.__dict__))
-                        logger('%s is not a supported VMAccess operation' % self.vmaop)
-                        sys.exit(1)
-                    rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
-                                                              pub_config_key=pub_config_key, pub_config=pub_config,
-                                                              pri_config_key=pri_config_key, pri_config=pri_config)
-                
-                if self.os == 'Linux':
-                    pub_config_key = 'VMAccessForLinuxPublicConfigParameter'
-                    pri_config_key = 'VMAccessForLinuxPrivateConfigParameter'
-                    self.extension = 'VMAccessForLinux'
-                    self.publisher = 'Microsoft.OSTCExtensions'
-                    rexts = self.list_resource_extension_versions(self.__dict__)
-                    version = None
-                    for rext in rexts:
-                        version = rext['version']          
-                    self.version = version.split('.')[0] + '.*'
-                    pub_config['timestamp'] = '%s' % timegm(time.gmtime())
-                    with open(self.ssh_public_key, 'rb') as cf:
-                        ssh_cert = cf.read()
-                        
-                    if self.vmaop == 'ResetSSHKey':
-                        pri_config['username'] = self.username
-                        pri_config['ssh_key'] = ssh_cert                        
-
-                    elif self.vmaop == 'ResetPassword':
-                        if self.password:
-                            pri_config['username'] = self.username
-                            pri_config['password'] = self.password
-                            pri_config['expiration'] = mkdate(datetime.now() + timedelta(days=self.pwd_expiry), '%Y-%m-%d')
-                        else:                            
-                            logger(pprint.pprint(self.__dict__))
-                            logger('VMAccess operation %s requires a new password' % self.vmaop)
-                            sys.exit(1)
-
-                    elif self.vmaop == 'ResetSSHKeyAndPassword':
-                        if self.password:
-                            pri_config['username'] = self.username
-                            pri_config['password'] = self.password
-                            pri_config['ssh_key'] = ssh_cert
-                        else:                            
-                            logger(pprint.pprint(self.__dict__))
-                            logger('VMAccess operation %s requires a new password' % self.vmaop)
-                            sys.exit(1)
-
-                    elif self.vmaop == 'DeleteUser':
-                        pri_config['remove_user'] = self.username
-
-                    elif self.vmaop == 'ResetSSHConfig':
-                        pri_config['reset_ssh'] = self.reset_ssh
-
-                    else:
-                        logger(pprint.pprint(self.__dict__))
-                        logger('%s is not a supported VMAccess operation' % self.vmaop)
-                        sys.exit(1)
-                    rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
-                                                              pri_config_key=pri_config_key, pri_config=pri_config)
-                return self.build_resource_extensions_xml_from_dict(extensions=rext[self.os])
-            else:
-                logger(pprint.pprint(self.__dict__))
-                logger('not all required parameters present for %s' % inspect.stack()[0][3])
-                sys.exit(1)
-        except Exception as e:
-            logger(message=traceback.print_exc())
-            return False
-
-    def build_ospatching_resource_extension(self, os=None, patching_disabled=False, patching_stop=False,
-                                            patching_reboot_after=None, patching_interval=None, patching_day=None,
-                                            patching_starttime=None, patching_category=None, patching_duration=None,
-                                            account=None, patching_healthy_test_script=None, patching_idle_test_script=None,
-                                            patching_local=False, patching_oneoff=False):
-        self.os = (os if os else self.os)
-        self.account = (account if account else self.default_storage_account)
-        self.patching_disabled = patching_disabled
-        self.patching_stop = patching_stop
-        self.patching_local = patching_local
-        self.patching_oneoff = patching_oneoff
-        self.patching_reboot_after = (patching_reboot_after if patching_reboot_after else self.default_patching_reboot_after)
-        self.patching_interval = (patching_interval if patching_interval else self.default_patching_interval)
-        self.patching_day = (patching_day if patching_day else self.default_patching_day)
-        self.patching_starttime = (patching_starttime if patching_starttime else self.default_patching_starttime)
-        self.patching_category = (patching_category if patching_category else self.default_patching_category)
-        self.patching_duration = (patching_duration if patching_duration else self.default_patching_duration)
-        self.patching_healthy_test_script = (patching_healthy_test_script if patching_healthy_test_script else self.default_patching_healthy_test_script)
-        self.patching_idle_test_script = (patching_idle_test_script if patching_idle_test_script else self.default_patching_idle_test_script)
-        try:   
-            if self.os:                
-                if self.os == 'Windows':
-                    logger(pprint.pprint(self.__dict__))
-                    logger('%s is not supported in Windows' % inspect.stack()[0][3])
-                    sys.exit(1)
-                
-                if self.os == 'Linux':
-                    pub_config = dict()
-                    pri_config = dict() 
-                    pub_config_key = 'OSPatchingForLinuxPublicConfigParameter'                   
-                    pri_config_key = 'OSPatchingForLinuxPrivateConfigParameter'
-                    self.extension = 'OSPatchingForLinux'
-                    self.publisher = 'Microsoft.OSTCExtensions'
-                    rexts = self.list_resource_extension_versions(self.__dict__)
-                    version = None
-                    for rext in rexts:
-                        version = rext['version']          
-                    self.version = version.split('.')[0] + '.*'
-                    pub_config['timestamp'] = '%s' % timegm(time.gmtime())
-                    pub_config['disabled'] = self.patching_disabled
-                    pub_config['stop'] = self.patching_stop
-                    pub_config['rebootAfterPatch'] = self.patching_reboot_after
-                    pub_config['intervalOfWeeks'] = self.patching_interval
-                    pub_config['dayOfWeek'] = self.patching_day
-                    pub_config['startTime'] = self.patching_starttime
-                    pub_config['category'] = self.patching_category
-                    pub_config['installDuration'] = self.patching_duration
-                    pub_config['idleTestScript'] = self.patching_idle_test_script
-                    pub_config['healthyTestScript'] = self.patching_healthy_test_script
-                    pub_config['vmStatusTest'] = {'local': self.patching_local,
-                                                  'idleTestScript': self.patching_idle_test_script,
-                                                  'healthyTestScript': self.patching_healthy_test_script}
-                    pub_config['oneoff'] = self.patching_oneoff
-                    pri_config['storageAccountName'] = self.account
-                    pri_config['storageAccountKey'] = self.get_storage_account_keys(account=self.account)['storage_service_keys']['primary']
-                    rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
-                                                              pub_config_key=pub_config_key, pub_config=pub_config,
-                                                              pri_config_key=pri_config_key, pri_config=pri_config)
-                return self.build_resource_extensions_xml_from_dict(extensions=rext[self.os])
-            else:
-                logger(pprint.pprint(self.__dict__))
-                logger('not all required parameters present for %s' % inspect.stack()[0][3])
-                sys.exit(1)
+                pub_config_key = 'OSPatchingForLinuxPublicConfigParameter'                   
+                pri_config_key = 'OSPatchingForLinuxPrivateConfigParameter'
+                self.extension = 'OSPatchingForLinux'
+                self.publisher = 'Microsoft.OSTCExtensions'
+                rexts = self.list_resource_extension_versions(self.__dict__)
+                version = None
+                for rext in rexts:
+                    version = rext['version']          
+                self.version = version.split('.')[0] + '.*'
+                pub_config['timestamp'] = '%s' % timegm(time.gmtime())
+                pub_config['disabled'] = self.patching_disabled
+                pub_config['stop'] = self.patching_stop
+                pub_config['rebootAfterPatch'] = self.patching_reboot_after
+                pub_config['intervalOfWeeks'] = self.patching_interval
+                pub_config['dayOfWeek'] = self.patching_day
+                pub_config['startTime'] = self.patching_starttime
+                pub_config['category'] = self.patching_category
+                pub_config['installDuration'] = self.patching_duration
+                pub_config['idleTestScript'] = self.patching_idle_test_script
+                pub_config['healthyTestScript'] = self.patching_healthy_test_script
+                pub_config['vmStatusTest'] = {'local': self.patching_local,
+                                              'idleTestScript': self.patching_idle_test_script,
+                                              'healthyTestScript': self.patching_healthy_test_script}
+                pub_config['oneoff'] = self.patching_oneoff
+                pri_config['storageAccountName'] = self.account
+                pri_config['storageAccountKey'] = self.get_storage_account_keys(account=self.account)['storage_service_keys']['primary']
+                rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
+                                                          pub_config_key=pub_config_key, pub_config=pub_config,
+                                                          pri_config_key=pri_config_key, pri_config=pri_config)
+            return self.build_resource_extensions_xml_from_dict(extensions=rext[self.os])
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -1148,23 +1165,27 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.service = self.get_params(key='service', params=arg, default=None)     
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=self.default_async)
+            self.readonly = self.get_params(key='readonly', params=arg, default=self.default_readonly)
 
             disks = self.get_disk_by_role_name(self.__dict__)
-            
-            result = self.sms.delete_role(self.service, self.deployment, self.name)
-            if result is not None:
-                d = dict()
-                operation = self.sms.get_operation_status(result.request_id)
-                d['disks'] = disks
-                d['result'] = result.__dict__
-                d['operation'] = operation.__dict__
-                if not self.async:
-                    pprint.pprint(d)
-                    return self.wait_for_operation_status(result.request_id)
-                else:                    
-                    return d
+
+            if not self.readonly:            
+                result = self.sms.delete_role(self.service, self.deployment, self.name)
+                if result is not None:
+                    d = dict()
+                    operation = self.sms.get_operation_status(result.request_id)
+                    d['disks'] = disks
+                    d['result'] = result.__dict__
+                    d['operation'] = operation.__dict__
+                    if not self.async:
+                        d['operation_result'] = self.wait_for_operation_status(result.request_id)
+                        return d
+                    else:                    
+                        return d
+                else:
+                    return False
             else:
-                return False
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
         except Exception as e:
             logger(message=traceback.print_exc())
             return False    
@@ -1177,9 +1198,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             self.disk = self.get_params(key='disk', params=arg, default=None)
             self.delete_vhd = self.get_params(key='delete_vhd', params=arg, default=self.default_delete_vhd)
+            self.readonly = self.get_params(key='readonly', params=arg, default=self.default_readonly)
             
-            result = self.sms.delete_disk(self.disk, delete_vhd=self.delete_vhd)
-            return True
+            if not self.readonly:            
+                result = self.sms.delete_disk(self.disk, delete_vhd=self.delete_vhd)
+                return True
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -1310,27 +1335,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
 
-    def get_endpoint_acl_xml(self, *args):
-        try:
-            if not args: return False
-            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
-            if not arg: return False
-
-            self.service = self.get_params(key='service', params=arg, default=None)
-            self.deployment = self.get_params(key='deployment', params=arg, default=None)
-            self.name = self.get_params(key='name', params=arg, default=None)
-            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
-
-            path = '/%s/services/hostedservices/%s/deployments/%s/roles/%s' % (self.subscription_id,
-                                                                               self.service,
-                                                                               self.deployment,
-                                                                               self.name)
-            return self.perform_get(path)
-
-        except Exception as e:
-            logger(message=traceback.print_exc())
-            return False
-
     def get_deployment_by_name(self, service=None, deployment=None):
         try:
             if service and deployment:
@@ -1358,27 +1362,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
             else:
                logger('get_deployment_by_slot() requires a service name, None specified') 
                sys.exit(1)
-        except Exception as e:
-            logger(message=traceback.print_exc())
-            return False
-        
-    def get_role(self, **kwargs):
-        try:
-            arg = self.verify_params(method=inspect.stack()[0][3], params=kwargs)
-            if not arg: return False
-            
-            self.service = self.get_params(key='service', params=arg, default=None)
-            self.deployment = self.get_params(key='deployment', params=arg, default=None)
-            self.name = self.get_params(key='name', params=arg, default=None)
-
-            self.verbose = self.get_params(key='verbose', params=arg, default=self.default_verbose)
-            if self.verbose: pprint.pprint(self.__dict__)
-            
-            role = self.sms.get_role(self.service, self.deployment, self.name)
-            if role:
-                return self.dict_from_response_obj(role)
-            else:
-                return None
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -1533,9 +1516,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             self.publisher = self.get_params(key='publisher', params=arg, default=self.default_publisher)           
             self.extension = self.get_params(key='extension', params=arg, default=self.default_extension)           
-
-            self.verbose = self.get_params(key='verbose', params=arg, default=self.default_verbose)
-            if self.verbose: pprint.pprint(self.__dict__)
             
             versions = self.sms.list_resource_extension_versions(self.publisher, self.extension)
             l = []
@@ -1554,9 +1534,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             self.service = self.get_params(key='service', params=arg, default=None)
 
-            self.verbose = self.get_params(key='verbose', params=arg, default=self.default_verbose)
-            if self.verbose: pprint.pprint(self.__dict__)
-            
             certificates = self.sms.list_service_certificates(self.service)
             l = []
             for certificate in certificates:
@@ -1575,9 +1552,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.start_date = self.get_params(key='start_date', params=arg, default=self.default_start_date)           
             self.end_date = self.get_params(key='end_date', params=arg, default=self.default_end_date)
             
-            self.verbose = self.get_params(key='verbose', params=arg, default=self.default_verbose)
-            if self.verbose: pprint.pprint(self.__dict__)
-
             operations = self.sms.list_subscription_operations(self.start_date, self.end_date)
             l = []        
             for operation in operations.subscription_operations:
@@ -1586,28 +1560,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
-
-    def dict_from_response_obj(self, *args):
-        obj = args[0]
-        
-        if not isinstance(obj, dict):
-            obj = self.dict_from_response_obj(obj.__dict__)
-
-        for k, v in obj.iteritems():
-            if '__dict__' in dir(v):
-                obj[k] = v.__dict__
-                obj = self.dict_from_response_obj(obj)
-            if isinstance(v, dict):
-                v = recurse_dict(v)            
-            if isinstance(v, list):                
-                l = []
-                for el in v:
-                    if isinstance(el, unicode):
-                        l.append(el)
-                    elif not isinstance(el, dict):                        
-                        l.append(el.__dict__)                        
-                        obj[k] = l
-        return obj
     
     def list_collection(self, *args):
         try:
@@ -1616,9 +1568,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if not arg: return False
 
             self.action = self.get_params(key='action', params=arg, default=None)
-
-            self.verbose = self.get_params(key='verbose', params=arg, default=self.default_verbose)
-            if self.verbose: pprint.pprint(self.__dict__)
 
             method = getattr(self.sms, self.action)
             results = method()
@@ -1844,25 +1793,77 @@ class AzureCloudClass(BaseCloudHarnessClass):
     def swap_deployment(self):
         pass
 
-    def set_endpoint_acl(self, **kwargs):
+    def xml_endpoint_fragment_from_dict(self, **kwargs):
         try:
             if not kwargs: return False
             arg = self.verify_params(method=inspect.stack()[0][3], params=kwargs)
+            if not arg: return False
+
+            self.epacls = self.get_params(key='epacls', params=arg, default=None)
+            
+            if self.epacls:
+                root = Element('InputEndpoints')
+                for epel in self.epacls:
+                    ep = SubElement(root, 'InputEndpoint')
+                    local_port = SubElement(ep, 'LocalPort')
+                    local_port.text = epel['LocalPort']
+                    name = SubElement(ep, 'Name')
+                    name.text = epel['Name']
+                    port = SubElement(ep, 'Port')
+                    port.text = epel['Port']
+                    protocol = SubElement(ep, 'Protocol')
+                    protocol.text = epel['Protocol']
+                    if 'acls' in epel:
+                        acl = SubElement(ep, 'EndpointAcl')
+                        rules = SubElement(acl, 'Rules')
+                        i = 100
+                        for acel in epel['acls']:
+                            rule = SubElement(rules, 'Rule')
+                            order = SubElement(rule, 'Order')
+                            order.text = str(i)
+                            action = SubElement(rule, 'Action')
+                            action.text = 'permit'
+                            subnet = SubElement(rule, 'RemoteSubnet')
+                            subnet.text = acel[1]
+                            description = SubElement(rule, 'Description')
+                            description.text = acel[0]
+                            i = i + 1
+                return tostring(root)
+            else:
+                return None
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+    def build_default_epacl_dict_for_os(self, **kwargs):
+        try:
+            os = kwargs['os']
+            eps = self.default_endpoints
+            acls = self.default_remote_subnets
+            for ep in eps[os]:
+                ep['acls'] = acls            
+            return eps[os]
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+    
+    def set_epacls(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
             if not arg: return False
             
             self.service = self.get_params(key='service', params=arg, default=None)
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.name = self.get_params(key='name', params=arg, default=None)
             self.subnet = self.get_params(key='subnet', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=self.default_readonly)
+            self.verbose = self.get_params(key='verbose', params=arg, default=self.default_verbose)
             
-            self.os = self.get_os_for_role(name=self.name, service=self.service, deployment=self.deployment)
-            if not self.os: return False
-            
-            self.eps = self.get_params(key='eps', params=arg, default=self.default_endpoints[self.os])
-            self.acls = self.get_params(key='acls', params=arg, default=self.build_acl_dict())
+            self.os = self.get_os_for_role(name=self.name, service=self.service, deployment=self.deployment, verbose=False)
+            if not self.os: return False           
 
-            ep_xml_template = \
+            self.epacls = self.get_params(key='epacls', params=arg, default=self.build_default_epacl_dict_for_os(os=self.os))
+
+            body = \
             '''
             <PersistentVMRole xmlns="http://schemas.microsoft.com/windowsazure">
                     <RoleName>%s</RoleName>
@@ -1883,21 +1884,57 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     <ProvisionGuestAgent>true</ProvisionGuestAgent>
             </PersistentVMRole>
             ''' % (self.name,
-                   self.xml_endpoint_fragment_from_dict(eps=self.eps, acls=self.acls),
+                   self.xml_endpoint_fragment_from_dict(epacls=self.epacls),
                    self.subnet)
             
             path = '/%s/services/hostedservices/%s/deployments/%s/roles/%s' % (self.subscription_id,
                                                                                self.service,
                                                                                self.deployment,
-                                                                               self.name)
-
-            self.verbose = self.get_params(key='verbose', params=arg, default=self.default_verbose)
+                                                                               self.name)            
             if self.verbose: pprint.pprint(self.__dict__)
+
+            self.async = self.get_params(key='async', params=arg, default=self.default_async)
+            self.readonly = self.get_params(key='readonly', params=arg, default=self.default_readonly)
             
-            if not self.readonly:                        
-                return self.perform_put(path, ep_xml_template)
+            if not self.readonly:
+                d = dict()
+                if not self.async:                  
+                    d['result'] = self.perform_put(path=path, body=body)
+                    request_id = [req_id[1] for req_id in d['result']['headers'] if req_id[0] == 'x-ms-request-id'][0]
+                    operation = self.sms.get_operation_status(request_id)
+                    d['operation'] = operation.__dict__
+                    d['operation_result'] = self.wait_for_operation_status(request_id)
+                    return d                    
+                else:
+                    return self.perform_put(path=path, body=body)
             else:
                 logger('%s: limited to read-only operations' % inspect.stack()[0][3])                
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
+    def get_epacls(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.service = self.get_params(key='service', params=arg, default=None)
+            self.deployment = self.get_params(key='deployment', params=arg, default=None)
+            self.name = self.get_params(key='name', params=arg, default=None)
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+
+            path = '/%s/services/hostedservices/%s/deployments/%s/roles/%s' % (self.subscription_id,
+                                                                               self.service,
+                                                                               self.deployment,
+                                                                               self.name)
+            d = dict()
+            d['result'] = self.perform_get(path=path)
+            request_id = [req_id[1] for req_id in d['result']['headers'] if req_id[0] == 'x-ms-request-id'][0]
+            operation = self.sms.get_operation_status(request_id)
+            d['operation'] = operation.__dict__
+            d['operation_result'] = self.wait_for_operation_status(request_id)
+            return d
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -1948,16 +1985,36 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
     def get_os_for_role(self, **kwargs):
         try:
+            if not kwargs: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=kwargs)
+            if not arg: return False
+            
+            self.service = self.get_params(key='service', params=arg, default=None)
+            self.deployment = self.get_params(key='deployment', params=arg, default=None)
+            self.name = self.get_params(key='name', params=arg, default=None)            
+
+            role = self.get_role(service=self.service, deployment=self.deployment, name=self.name, verbose=False)
+            if role:
+                return role['os_virtual_hard_disk']['os']
+            else:
+                return None
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
+    def get_role(self, **kwargs):
+        try:
+            if not kwargs: return False
             arg = self.verify_params(method=inspect.stack()[0][3], params=kwargs)
             if not arg: return False
             
             self.service = self.get_params(key='service', params=arg, default=None)
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.name = self.get_params(key='name', params=arg, default=None)
-
-            role = self.get_role(service=self.service, deployment=self.deployment, name=self.name, verbose=False)
+            
+            role = self.sms.get_role(self.service, self.deployment, self.name)
             if role:
-                return role['os_virtual_hard_disk']['os']
+                return self.dict_from_response_obj(role)
             else:
                 return None
         except Exception as e:
@@ -1975,9 +2032,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.name = self.get_params(key='name', params=arg, default=None)
             self.key = self.get_params(key='key', params=arg, default=None)
 
-            self.verbose = self.get_params(key='verbose', params=arg, default=self.default_verbose)
-            if self.verbose: pprint.pprint(self.__dict__)
-
             role = self.sms.get_role(self.service, self.deployment, self.name)
             d = dict()
             if role:                
@@ -1993,146 +2047,62 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False        
 
-    def xml_endpoint_fragment_from_dict(self, **kwargs):
+    def dict_from_response_obj(self, *args):
+        obj = args[0]
+        
+        if not isinstance(obj, dict):
+            obj = self.dict_from_response_obj(obj.__dict__)
+
+        for k, v in obj.iteritems():
+            if '__dict__' in dir(v):
+                obj[k] = v.__dict__
+                obj = self.dict_from_response_obj(obj)
+            if isinstance(v, dict):
+                 v = recurse_dict(v)            
+            if isinstance(v, list):                
+                l = []
+                for el in v:
+                    if isinstance(el, unicode):
+                        l.append(el)
+                    elif not isinstance(el, dict):                      
+                        l.append(el.__dict__)                        
+                        obj[k] = l
+        return obj
+
+    def build_epacls_dict_from_xml(self, **kwargs):
         try:
             if not kwargs: return False
             arg = self.verify_params(method=inspect.stack()[0][3], params=kwargs)
             if not arg: return False
-
-            self.eps = self.get_params(key='eps', params=arg, default=None)
-            self.acls = self.get_params(key='acls', params=arg, default=None)
             
-            if self.eps:
-                root = Element('InputEndpoints')
-                for ep_el in self.eps:
-                    ep = SubElement(root, 'InputEndpoint')
-                    local_port = SubElement(ep, 'LocalPort')
-                    local_port.text = ep_el['LocalPort']
-                    name = SubElement(ep, 'Name')
-                    name.text = ep_el['Name']
-                    port = SubElement(ep, 'Port')
-                    port.text = ep_el['Port']
-                    protocol = SubElement(ep, 'Protocol')
-                    protocol.text = ep_el['Protocol']
-                    if self.acls:
-                        ep_acl = SubElement(ep, 'EndpointAcl')
-                        rules = SubElement(ep_acl, 'Rules')
-                        i = 100
-                        for acl_el in self.acls:
-                            rule = SubElement(rules, 'Rule')
-                            order = SubElement(rule, 'Order')
-                            order.text = str(i)
-                            action = SubElement(rule, 'Action')
-                            action.text = 'permit'
-                            subnet = SubElement(rule, 'RemoteSubnet')
-                            subnet.text = acl_el['RemoteSubnet']
-                            description = SubElement(rule, 'Description')
-                            description.text = acl_el['Description']
-                            i = i + 1
-                return tostring(root)
-            else:
-                return None
-        except Exception as e:
-            logger(message=traceback.print_exc())
-            return False
-
-    def build_acl_dict(self, **kwargs):
-        self.acls = self.get_params(key='acls', params=kwargs, default=self.default_remote_subnets)            
-        l = []
-        if self.acls:
-            for subnet in self.acls:
-                d = dict()
-                d['RemoteSubnet'] = subnet[1]
-                d['Description'] = subnet[0]
-                l.append(d)
-            return l
-        else:
-            return None
-
-    def build_endpoint_acl_dict_for_role(self, **kwargs):        
-        try:
-            if not kwargs: return False
-            arg = self.verify_params(method=inspect.stack()[0][3], params=kwargs)
-            if not arg: return False
-
             self.service = self.get_params(key='service', params=arg, default=None)
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.name = self.get_params(key='name', params=arg, default=None)
-
-            try:
-                xml = self.get_endpoint_acl_xml(arg)['body']
-                eps = xmltodict.parse(xml)['PersistentVMRole']['ConfigurationSets']['ConfigurationSet']['InputEndpoints']
-            except:
-                return False
-
-            epl = list()            
-            epal = list()
-
-            try:
-                for ep in eps['InputEndpoint']:
-                    if isinstance(ep, dict):
-                        epd = dict()
-                        epd['Name'] = ep['Name']
-                        epd['Port'] = ep['Port']
-                        epd['LocalPort'] = ep['LocalPort']
-                        epd['Protocol'] = ep['Protocol']
-                        epd['EnableDirectServerReturn'] = ep['EnableDirectServerReturn']
-                        epl.append(epd)
-                        if 'EndpointAcl' in ep:
-                            for rk, rv in ep['EndpointAcl']['Rules'].iteritems():                        
-                                for el in rv:
-                                    epal.append((el['Description'], el['RemoteSubnet'], el['Order'], el['Action']))
-                        
-                for epk, epv in eps.iteritems():
-                    epd = dict()
-                    epd['Name'] = epv['Name']
-                    epd['Port'] = epv['Port']
-                    epd['LocalPort'] = epv['LocalPort']
-                    epd['Protocol'] = epv['Protocol']
-                    epd['EnableDirectServerReturn'] = epv['EnableDirectServerReturn']
-                    epl.append(epd)
-                    if 'EndpointAcl' in epv:
-                        for rk, rv in epv['EndpointAcl']['Rules'].iteritems():                        
-                            for el in rv:
-                                epal.append((el['Description'], el['RemoteSubnet'], el['Order'], el['Action']))
-                    
-            except:
-                pass
-
-
-
-
-
-
             
-##            pprint.pprint(epl)
-##            pprint.pprint(epal)
-##            
-##            sys.exit(0)
-##               
-##            for epk, epv in eps.iteritems():
-##                epd = dict()
-##                epd['Name'] = epv['Name']
-##                epd['Port'] = epv['Port']
-##                epd['LocalPort'] = epv['LocalPort']                
-##                epd['Protocol'] = epv['Protocol']
-##                epd['EnableDirectServerReturn'] = epv['EnableDirectServerReturn']
-##                epl.append(epd)
-##                if 'EndpointAcl' in epv:
-##                    for rk, rv in epv['EndpointAcl']['Rules'].iteritems():                        
-##                        for el in rv:
-##                            epal.append((el['Description'], el['RemoteSubnet'], el['Order'], el['Action']))
-
-            d = dict()
-            d['eps'] = None
-            d['acls'] = None            
-            d['eps'] = epl
-            d['acls'] = self.build_acl_dict(acls=epal)
-            return d
+            xml = self.get_epacls(self.__dict__)['result']['body']            
+            d = xmltodict.parse(xml)['PersistentVMRole']['ConfigurationSets']['ConfigurationSet']['InputEndpoints']
+            epl = []
+            for k, v in d.iteritems():                
+                if not isinstance(v, list): v = [v]
+                epd = dict()                
+                for epacl in v:
+                    epd = {'LocalPort': epacl['LocalPort'],
+                           'Name': epacl['Name'],
+                           'Port': epacl['Port'],
+                           'Protocol': epacl['Protocol'],
+                           'EnableDirectServerReturn': epacl['EnableDirectServerReturn']}
+                    if 'EndpointAcl' in epacl:
+                        for kk, vv in epacl['EndpointAcl']['Rules'].iteritems():
+                            acl = []
+                            for rule in vv:
+                                acl.append((rule['Description'], rule['RemoteSubnet'], rule['Action'], rule['Order']))
+                            epd['acls'] = acl
+                    epl.append(epd)
+            return epl
         except Exception as e:
             logger(message=traceback.print_exc())
-            return False         
-
+            return False
+        
     def update_role(self, *args):
         try:
             if not args: return False
@@ -2142,21 +2112,21 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.service = self.get_params(key='service', params=arg, default=None)
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.name = self.get_params(key='name', params=arg, default=None)
+            self.verbose = self.get_params(key='verbose', params=arg, default=self.default_verbose)
 
-            self.os = self.get_os_for_role(service=self.service, deployment=self.deployment, name=self.name)
             role = self.get_role(service=self.service, deployment=self.deployment, name=self.name, verbose=False)
-            raw_role = self.get_objs_for_role(service=self.service, deployment=self.deployment, name=self.name, verbose=False)
-
-            if role and raw_role and self.os:                
+            role_objs = self.get_objs_for_role(service=self.service, deployment=self.deployment, name=self.name, verbose=False)
+            
+            if role and role_objs:
+                self.os = self.get_params(key='os', params=arg, default=role['os_virtual_hard_disk']['os'])
                 self.size = self.get_params(key='size', params=arg, default=role['role_size'])
                 self.availset = self.get_params(key='availset', params=arg, default=role['availability_set_name'])
                 self.subnet = self.get_params(key='subnet', params=arg, default=role['configuration_sets'][0]['subnet_names'][0])
                 self.rextrs = self.get_params(key='rextrs', params=arg, default=None)
                 self.eps = self.get_params(key='eps', params=arg, default=role['configuration_sets'][0]['input_endpoints'])
-                self.acls = self.get_params(key='acls', params=arg, default=None)
-                self.os_disk = self.get_params(key='os_disk', params=arg, default=raw_role['os_virtual_hard_disk'])
-                self.data_disks = self.get_params(key='data_disk', params=arg, default=raw_role['data_virtual_hard_disks'])
-                self.async = self.get_params(key='async', params=arg, default=self.default_async)
+                self.os_disk = self.get_params(key='os_disk', params=arg, default=role_objs['os_virtual_hard_disk'])
+                self.data_disks = self.get_params(key='data_disk', params=arg, default=role_objs['data_virtual_hard_disks'])
+                self.async = False
                 self.readonly = self.get_params(key='readonly', params=arg, default=self.default_readonly)                
             else:
                 logger('%s: unable to retrieve properties for role %s' % (inspect.stack()[0][3], self.name))
@@ -2170,44 +2140,15 @@ class AzureCloudClass(BaseCloudHarnessClass):
             subnets.subnets.append(subnet.name)
             net_config.subnet_names = subnets
             net_config.end = subnets
-
-##            eps_acls = self.build_endpoint_acl_dict_for_role(name=self.name, service=self.service, deployment=self.deployment)            
-##            self.eps = None
-##            self.acls = None
-##            try:
-##                self.eps = eps_acls['eps']
-##                self.acls = eps_acls['acls']                
-##                endpoints = []
-##                for ep in self.eps:
-##                    endpoints.append(ConfigurationSetInputEndpoint(name=ep['Name'],
-##                                                                   protocol=ep['Protocol'],
-##                                                                   port=ep['Port'],
-##                                                                   local_port=ep['LocalPort'],
-##                                                                   load_balanced_endpoint_set_name=None,
-##                                                                   enable_direct_server_return=False))
-##                for endpoint in endpoints:
-##                    net_config.input_endpoints.input_endpoints.append(endpoint)                
-##            except:
-##                pass
-            
             net_config.input_endpoints = self.eps            
             self.net_config = net_config
-            
-            self.verbose = self.get_params(key='verbose', params=arg, default=self.default_verbose)                
+                        
             if self.verbose: pprint.pprint(self.__dict__)
-
+            
             if not self.readonly:
-                body = self.get_endpoint_acl_xml(arg)['body']
-                path = '/%s/services/hostedservices/%s/deployments/%s/roles/%s' % (self.subscription_id,
-                                                                                   self.service,
-                                                                                   self.deployment,
-                                                                                   self.name)
-                pprint.pprint(self.perform_put(path=path, body=body))
-                
-##                pprint.pprint(self.set_endpoint_acl(name=self.name, service=self.service,
-##                                                    deployment=self.deployment, subnet=self.subnet,
-##                                                    eps=self.eps, acls=self.acls))                
                 try:
+                    d = dict()
+                    self.epacls = self.build_epacls_dict_from_xml(service=self.service, deployment=self.deployment, name=self.name)
                     result = self.sms.update_role(self.service, self.deployment, self.name,
                                                   os_virtual_hard_disk=self.os_disk,
                                                   network_config=self.net_config,
@@ -2217,20 +2158,18 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                   role_type='PersistentVMRole',
                                                   resource_extension_references=self.rextrs,
                                                   provision_guest_agent=True)
-                    d = dict()
                     operation = self.sms.get_operation_status(result.request_id)
-                    d['result'] = result.__dict__
-                    d['operation'] = operation.__dict__
-                    if not self.async:
-                        pprint.pprint(d)
-                        return self.wait_for_operation_status(result.request_id)
-                    else:
-                        return d
+                    d['result_update_role'] = result.__dict__
+                    d['operation_update_role'] = operation.__dict__
+                    d['operation_result_update_role'] = self.wait_for_operation_status(result.request_id)                    
+                    result = self.set_epacls(self.__dict__)
+                    d['result_set_epacls'] = result
+                    return d
                 except (WindowsAzureConflictError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
-                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])                
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -2311,131 +2250,41 @@ if __name__ == '__main__':
         elif arg.action in ['list_resource_extension_versions']: pprint.pprint(az.list_resource_extension_versions(arg.__dict__))
         elif arg.action in ['list_service_certificates']: pprint.pprint(az.list_service_certificates(arg.__dict__))
         elif arg.action in ['list_subscription_operations']: pprint.pprint(az.list_subscription_operations(arg.__dict__))
-        elif arg.action in ['check_hosted_service_name_availability']: pprint.pprint(az.check_hosted_service_name_availability(service=(arg.service[0] if arg.service else None)))
-        elif arg.action in ['check_storage_account_name_availability']: pprint.pprint(az.check_storage_account_name_availability(account=(arg.account[0] if arg.account else None)))
-        elif arg.action in ['create_affinity_group']: pprint.pprint(az.create_affinity_group(group=(arg.group[0] if arg.group else None),
-                                                                                                label=(arg.label[0] if arg.label else None),
-                                                                                                description=(arg.description[0] if arg.description else None),
-                                                                                                location=(arg.location[0] if arg.location else None)))
-        elif arg.action in ['delete_affinity_group']: pprint.pprint(az.delete_affinity_group(group=(arg.group[0] if arg.group else None)))
-        elif arg.action in ['get_affinity_group_properties']: pprint.pprint(az.get_affinity_group_properties(group=(arg.group[0] if arg.group else None)))
-        elif arg.action in ['update_affinity_group']: pprint.pprint(az.update_affinity_group(group=(arg.group[0] if arg.group else None),
-                                                                                                label=(arg.label[0] if arg.label else None),
-                                                                                                description=(arg.description[0] if arg.description else None)))
-        elif arg.action in ['create_virtual_machine_deployment']: pprint.pprint(az.create_virtual_machine_deployment(deployment=(arg.deployment[0] if arg.deployment else None),
-                                                                                                                        service=(arg.service[0] if arg.service else None),
-                                                                                                                        slot=(arg.slot[0] if arg.slot else None),
-                                                                                                                        label=(arg.label[0] if arg.label else None),
-                                                                                                                        size=(arg.size[0] if arg.size else None),
-                                                                                                                        os=(arg.os[0] if arg.os else None),
-                                                                                                                        image=(arg.image[0] if arg.image else None),
-                                                                                                                        availset=(arg.availset[0] if arg.availset else None),                                                                                                                        
-                                                                                                                        network=(arg.network[0] if arg.network else None),
-                                                                                                                        name=(arg.name[0] if arg.name else None),
-                                                                                                                        username=(arg.username[0] if arg.username else None),
-                                                                                                                        password=(arg.password[0] if arg.password else None),
-                                                                                                                        subnet=(arg.subnet[0] if arg.subnet else None),
-                                                                                                                        account=(arg.account[0] if arg.account else None)))
+        elif arg.action in ['check_hosted_service_name_availability']: pprint.pprint(az.check_hosted_service_name_availability())
+        elif arg.action in ['check_storage_account_name_availability']: pprint.pprint(az.check_storage_account_name_availability())
+        elif arg.action in ['create_affinity_group']: pprint.pprint(az.create_affinity_group())
+        elif arg.action in ['delete_affinity_group']: pprint.pprint(az.delete_affinity_group())
+        elif arg.action in ['get_affinity_group_properties']: pprint.pprint(az.get_affinity_group_properties())
+        elif arg.action in ['update_affinity_group']: pprint.pprint(az.update_affinity_group())
+        elif arg.action in ['create_virtual_machine_deployment']: pprint.pprint(az.create_virtual_machine_deployment())
         elif arg.action in ['add_role']: pprint.pprint(az.add_role(arg.__dict__))
-        elif arg.action in ['get_storage_account_properties']: pprint.pprint(az.get_storage_account_properties(account=(arg.account[0] if arg.account else None)))
-        elif arg.action in ['get_deployment_by_slot']: pprint.pprint(az.get_deployment_by_slot(service=(arg.service[0] if arg.service else None),
-                                                                                                  slot=(arg.slot[0] if arg.slot else None)))
-        elif arg.action in ['get_deployment_by_name']: pprint.pprint(az.get_deployment_by_name(service=(arg.service[0] if arg.service else None),
-                                                                                                  deployment=(arg.deployment[0] if arg.deployment else None)))
-        elif arg.action in ['get_role']: pprint.pprint(az.get_role(service=(arg.service[0] if arg.service else None),
-                                                                      deployment=(arg.deployment[0] if arg.deployment else None),
-                                                                      name=(arg.name[0] if arg.name else None)))
-        elif arg.action in ['get_data_disk']: pprint.pprint(az.get_data_disk(service=(arg.service[0] if arg.service else None),
-                                                                                deployment=(arg.deployment[0] if arg.deployment else None),
-                                                                                name=(arg.name[0] if arg.name else None),
-                                                                                lun=(arg.lun[0] if arg.lun else None)))
-        elif arg.action in ['get_disk']: pprint.pprint(az.get_disk(disk=(arg.disk[0] if arg.disk else None)))
+        elif arg.action in ['get_storage_account_properties']: pprint.pprint(az.get_storage_account_properties())
+        elif arg.action in ['get_deployment_by_slot']: pprint.pprint(az.get_deployment_by_slot())
+        elif arg.action in ['get_deployment_by_name']: pprint.pprint(az.get_deployment_by_name())
+        elif arg.action in ['get_role']: pprint.pprint(az.get_role())
+        elif arg.action in ['get_data_disk']: pprint.pprint(az.get_data_disk())
+        elif arg.action in ['get_disk']: pprint.pprint(az.get_disk())
         elif arg.action in ['get_disk_by_role_name']: pprint.pprint(az.get_disk_by_role_name(arg.__dict__))
-        elif arg.action in ['get_hosted_service_properties']: pprint.pprint(az.get_hosted_service_properties(service=(arg.service[0] if arg.service else None)))        
-        elif arg.action in ['get_management_certificate']: pprint.pprint(az.get_management_certificate(thumbprint=(arg.thumbprint[0] if arg.thumbprint else None)))        
-        elif arg.action in ['get_operation_status']: pprint.pprint(az.get_operation_status(request_id=(arg.request_id[0] if arg.request_id else None)))       
+        elif arg.action in ['get_hosted_service_properties']: pprint.pprint(az.get_hosted_service_properties())        
+        elif arg.action in ['get_management_certificate']: pprint.pprint(az.get_management_certificate())        
+        elif arg.action in ['get_operation_status']: pprint.pprint(az.get_operation_status())
         elif arg.action in ['delete_role']: pprint.pprint(az.delete_role(arg.__dict__))
         elif arg.action in ['delete_disk']: pprint.pprint(az.delete_disk(arg.__dict__))
-        elif arg.action in ['wait_for_operation_status']: pprint.pprint(az.wait_for_operation_status(request_id=(arg.request_id[0] if arg.request_id else None),
-                                                                                                        status=(arg.status[0] if arg.status else None),
-                                                                                                        wait=(arg.wait[0] if arg.wait else None),
-                                                                                                        timeout=(arg.timeout[0] if arg.timeout else None)))
-        elif arg.action in ['set_endpoint_acl']: pprint.pprint(az.set_endpoint_acl(service=arg.service,
-                                                                                   deployment=arg.deployment,
-                                                                                   name=arg.name,
-                                                                                   subnet=arg.subnet))
-        elif arg.action in ['get_endpoint_acl_xml']: pprint.pprint(az.get_endpoint_acl(arg.__dict__))
-        elif arg.action in ['reboot_role_instance']: pprint.pprint(az.reboot_role_instance(service=(arg.service[0] if arg.service else None),
-                                                                                              deployment=(arg.deployment[0] if arg.deployment else None),
-                                                                                              name=(arg.name[0] if arg.name else None)))
-        elif arg.action in ['shutdown_role']: pprint.pprint(az.shutdown_role(service=(arg.service[0] if arg.service else None),
-                                                                                deployment=(arg.deployment[0] if arg.deployment else None),
-                                                                                name=(arg.name[0] if arg.name else None)))
-        elif arg.action in ['restart_role']: pprint.pprint(az.restart_role(service=(arg.service[0] if arg.service else None),
-                                                                              deployment=(arg.deployment[0] if arg.deployment else None),
-                                                                              name=(arg.name[0] if arg.name else None)))
-        elif arg.action in ['start_role']: pprint.pprint(az.start_role(service=(arg.service[0] if arg.service else None),
-                                                                          deployment=(arg.deployment[0] if arg.deployment else None),
-                                                                          name=(arg.name[0] if arg.name else None)))
-        elif arg.action in ['start_roles']: pprint.pprint(az.start_roles(service=(arg.service[0] if arg.service else None),
-                                                                            deployment=(arg.deployment[0] if arg.deployment else None),
-                                                                            names=(arg.name if arg.name else None)))
-        elif arg.action in ['shutdown_roles']: pprint.pprint(az.shutdown_roles(service=(arg.service[0] if arg.service else None),
-                                                                                  deployment=(arg.deployment[0] if arg.deployment else None),
-                                                                                  names=(arg.name if arg.name else None)))
-        elif arg.action in ['delete_dns_server']: pprint.pprint(az.delete_dns_server(service=(arg.service[0] if arg.service else None),
-                                                                                        deployment=(arg.deployment[0] if arg.deployment else None),
-                                                                                        name=(arg.name[0] if arg.name else None)))
-        elif arg.action in ['add_dns_server']: pprint.pprint(az.add_dns_server(service=(arg.service[0] if arg.service else None),
-                                                                                  deployment=(arg.deployment[0] if arg.deployment else None),
-                                                                                  ipaddr=(arg.ipaddr[0] if arg.ipaddr else None),
-                                                                                  name=(arg.name[0] if arg.name else None)))
-        elif arg.action in ['get_service_certificate']: pprint.pprint(az.get_service_certificate(service=(arg.service[0] if arg.service else None),
-                                                                                                    thumbprint=(arg.thumbprint[0] if arg.thumbprint else None),
-                                                                                                    algorithm=(arg.algorithm[0] if arg.algorithm else None)))
-        elif arg.action in ['get_storage_account_keys']: pprint.pprint(az.get_storage_account_keys(account=(arg.account[0] if arg.account else None)))
-        elif arg.action in ['update_role']: pprint.pprint(az.update_role(arg))
-        elif arg.action in ['add_chefclient_extension']: pprint.pprint(az.add_chefclient_extension(arg.__dict__))
-        elif arg.action in ['add_customscript_extension']:
-            az.os = az.get_os_for_role(arg)
-            csre = az.build_customscript_resource_extension(os=az.os)
-            pprint.pprint(az.update_role(deployment=(arg.deployment[0] if arg.deployment else None),
-                                         service=(arg.service[0] if arg.service else None),
-                                         name=(arg.name[0] if arg.name else None),
-                                         rextrs=csre,
-                                         async=arg.async,
-                                         readonly=arg.readonly))
-        elif arg.action in ['add_vmaccess_extension']:
-            az.os = az.get_os_for_role(arg)
-            vmare = az.build_vmaccess_resource_extension(os=az.os,
-                                                         username=(arg.username[0] if arg.username else None),
-                                                         password=(arg.password[0] if arg.password else None),
-                                                         vmaop=(arg.vmaop[0] if arg.vmaop else None))
-            pprint.pprint(az.update_role(deployment=(arg.deployment[0] if arg.deployment else None),
-                                         service=(arg.service[0] if arg.service else None),
-                                         name=(arg.name[0] if arg.name else None),
-                                         rextrs=vmare,
-                                         async=arg.async,
-                                         readonly=arg.readonly))
-        elif arg.action in ['add_ospatching_extension']:
-            az.os = az.get_os_for_role(arg)
-            ospre = az.build_ospatching_resource_extension(os=az.os,
-                                                           patching_disabled=arg.patching_disabled,
-                                                           patching_stop=arg.patching_stop,
-                                                           patching_reboot_after=(arg.patching_reboot_after[0] if arg.patching_reboot_after else None),
-                                                           patching_interval=(arg.patching_interval[0] if arg.patching_interval else None),
-                                                           patching_day=(arg.patching_day[0] if arg.patching_day else None),
-                                                           patching_starttime=(arg.patching_starttime[0] if arg.patching_starttime else None),
-                                                           patching_category=(arg.patching_category[0] if arg.patching_category else None),
-                                                           patching_duration=(arg.patching_duration[0] if arg.patching_duration else None),
-                                                           patching_local=arg.patching_local,
-                                                           patching_oneoff=arg.patching_oneoff)
-            pprint.pprint(az.update_role(deployment=(arg.deployment[0] if arg.deployment else None),
-                                         service=(arg.service[0] if arg.service else None),
-                                         name=(arg.name[0] if arg.name else None),
-                                         rextrs=ospre,
-                                         async=arg.async,
-                                         readonly=arg.readonly))
+        elif arg.action in ['wait_for_operation_status']: pprint.pprint(az.wait_for_operation_status())
+        elif arg.action in ['set_epacls']: pprint.pprint(az.set_epacls(arg.__dict__))
+        elif arg.action in ['get_epacls']: pprint.pprint(az.get_epacls(arg.__dict__))
+        elif arg.action in ['reboot_role_instance']: pprint.pprint(az.reboot_role_instance())
+        elif arg.action in ['shutdown_role']: pprint.pprint(az.shutdown_role())
+        elif arg.action in ['restart_role']: pprint.pprint(az.restart_role())
+        elif arg.action in ['start_role']: pprint.pprint(az.start_role())
+        elif arg.action in ['start_roles']: pprint.pprint(az.start_roles())
+        elif arg.action in ['shutdown_roles']: pprint.pprint(az.shutdown_roles())
+        elif arg.action in ['delete_dns_server']: pprint.pprint(az.delete_dns_server())
+        elif arg.action in ['add_dns_server']: pprint.pprint(az.add_dns_server())
+        elif arg.action in ['get_service_certificate']: pprint.pprint(az.get_service_certificate())
+        elif arg.action in ['get_storage_account_keys']: pprint.pprint(az.get_storage_account_keys())
+        elif arg.action in ['update_role']: pprint.pprint(az.update_role(arg.__dict__))
+        elif arg.action in ['add_resource_extension']: pprint.pprint(az.add_resource_extension(arg.__dict__))
         elif arg.action in ['add_data_disk']: pprint.pprint(az.add_data_disk(arg.__dict__))
         else:
             logger(message='unknown action %s' % arg.action)
