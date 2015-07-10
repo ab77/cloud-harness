@@ -111,7 +111,9 @@ def args():
     azure.add_argument('--delete_vhds', action='store_true', required=False, help='delete VHDs')
     azure.add_argument('--delete_disks', action='store_true', required=False, help='delete disks')
     azure.add_argument('--async', action='store_true', required=False, help='asynchronous operation')
-    azure.add_argument('--thumbprint', type=str, required=False, help='certificate thumbprint')    
+    azure.add_argument('--thumbprint', type=str, required=False, help='certificate thumbprint')
+    azure.add_argument('--certificate', type=str, required=False, help='certificate file')
+    azure.add_argument('--publish_settings', type=str, required=False, help='Azure publish_settings file')    
     azure.add_argument('--request_id', type=str, required=False, help='request ID')    
     azure.add_argument('--status', type=str, required=False, default=AzureCloudClass.default_status, choices=['Succeeded', 'InProgress', 'Failed'], help='wait for operation status (default %r)' % AzureCloudClass.default_status)
     azure.add_argument('--wait', type=int, required=False, default=AzureCloudClass.default_wait, help='operation wait time (default %i)' % AzureCloudClass.default_wait)
@@ -249,9 +251,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'add_resource_extension', 'params': ['service', 'deployment', 'name', 'extension'], 'collection': False},
                {'action': 'add_role', 'params': ['deployment', 'service', 'os', 'name', 'image', 'subnet', 'account'], 'collection': False},
                {'action': 'add_data_disk', 'params': ['service', 'deployment', 'name'], 'collection': False},
-               {'action': 'add_disk', 'params': [], 'collection': False},
+               {'action': 'add_disk', 'params': ['name', 'os', 'image'], 'collection': False},
                {'action': 'add_dns_server', 'params': ['service', 'deployment', 'name', 'ipaddr'], 'collection': False},
-               {'action': 'add_management_certificate', 'params': [], 'collection': False},
+               {'action': 'add_management_certificate', 'params': ['certificate'], 'collection': False},
                {'action': 'add_os_image', 'params': [], 'collection': False},
                {'action': 'add_service_certificate', 'params': [], 'collection': False},
                {'action': 'build_epacls_dict_from_xml', 'params': ['deployment', 'service', 'name'], 'collection': False},
@@ -273,7 +275,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'delete_disk', 'params': ['disk'], 'collection': False},
                {'action': 'delete_deployment', 'params': ['service', 'deployment'], 'collection': False},
                {'action': 'delete_dns_server', 'params': ['service', 'deployment', 'name'], 'collection': False},
-               {'action': 'get_certificate_from_publish_settings', 'params': [], 'collection': False},
+               {'action': 'delete_management_certificate', 'params': ['thumbprint'], 'collection': False},
+               {'action': 'get_certificate_from_publish_settings', 'params': ['publish_settings', 'certificate'], 'collection': False},
                {'action': 'get_storage_account_properties', 'params': [], 'collection': False},
                {'action': 'get_deployment_by_slot', 'params': ['service'], 'collection': False},
                {'action': 'get_deployment_by_name', 'params': ['service', 'deployment'], 'collection': False},
@@ -293,6 +296,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'get_disk_by_role_name', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'get_os_for_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
                {'action': 'get_objs_for_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
+               {'action': 'get_pub_key_and_thumbprint_from_x509_cert', 'params': ['certificate', 'algorithm'], 'collection': False},
                {'action': 'generate_signed_blob_url', 'params': ['account', 'container', 'script'], 'collection': False},
                {'action': 'perform_get', 'params': ['path'], 'collection': False},
                {'action': 'perform_put', 'params': ['path', 'body'], 'collection': False},
@@ -371,6 +375,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
         self.image = None
         self.disk = None
         self.thumbprint = None
+        self.certificate = None
+        self.publish_settings = None
         self.request_id = None
         self.deployment = None
         self.password = None
@@ -383,7 +389,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
         self.subscription_id = subscription_id or self.default_subscription_id
         self.certificate_path = certificate_path or self.default_certificate_path
         if not self.subscription_id or not self.certificate_path:
-            logger('%s: requires a subscription_id and certificate_path' % inspect.stack()[0][3])
+            logger('%s: requires an Azure subscription_id and management certificate_path' % inspect.stack()[0][3])
             sys.exit(1)
         else:
             self.sms = ServiceManagementService(self.subscription_id, self.certificate_path, request_session=self.set_proxy())
@@ -599,7 +605,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                                                         'verbose': False})))
             self.image = self.get_params(key='image', params=arg, default=None)
             self.disk = self.get_params(key='disk', params=arg, default=None)
-            self.label = self.get_params(key='disk_label', params=arg, default=None)
+            self.label = self.get_params(key='label', params=arg, default=None)
             self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
             self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)       
             self.host_caching = self.get_params(key='host_caching', params=arg, default=self.default_host_caching)
@@ -614,12 +620,15 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 self.source_media_link = 'https://%s.blob.core.windows.net/%s/%s' % (self.account,
                                                                                      self.container,
                                                                                      self.image)
+            elif self.disk:
+                self.source_media_link = None
+                self.media_link = None             
             else:
                 self.source_media_link = None
                 self.media_link = 'https://%s.blob.core.windows.net/%s/%s-%s-%s-%s.vhd' % (self.account,
                                                                                            self.container,
                                                                                            self.service,
-                                                                                           self.disk,
+                                                                                           self.name,
                                                                                            ts,
                                                                                            self.lun)
             if verbose: pprint.pprint(self.__dict__)
@@ -651,9 +660,38 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
         
-    def add_disk(self):
-        pass
-        
+    def add_disk(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.os = self.get_params(key='os', params=arg, default=None)
+            self.name = self.get_params(key='name', params=arg, default=None)
+            if isinstance(self.name, list): self.name = self.name[0]
+            self.image = self.get_params(key='image', params=arg, default=None)
+            self.label = self.get_params(key='label', params=arg, default=self.name)
+            self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
+            self.container = self.get_params(key='container', params=arg, default='images')       
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            self.media_link = 'https://%s.blob.core.windows.net/%s/%s' % (self.account, self.container, self.image)
+            
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                try:
+                    return self.sms.add_disk(None, self.label, self.media_link, self.name, self.os)
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
     def add_dns_server(self, *args):
         try:
             if not args: return False
@@ -690,9 +728,85 @@ class AzureCloudClass(BaseCloudHarnessClass):
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
+
+    def get_pub_key_and_thumbprint_from_x509_cert(self, **kwargs):
+        try:
+            import OpenSSL.crypto as pyopenssl
+        except ImportError:
+            sys.stderr.write('ERROR: Python module "pyOpenSSL" not found, please run "pip install pyopenssl".\n')
+            sys.exit()
+
+        try:
+            from Crypto.Util import asn1
+            from Crypto.PublicKey import RSA    
+        except ImportError:
+            sys.stderr.write('ERROR: Python module "PyCrypto" not found, please run "pip install pycrypto".\n')
+            sys.exit()
+
+        try:
+            if not kwargs: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=kwargs)
+            if not arg: return False
+
+            self.certificate = self.get_params(key='certificate', params=arg, default=None)
+            self.algorithm = self.get_params(key='algorithm', params=arg, default=self.default_algorithm)
+            
+            try:
+                cert = pyopenssl.load_certificate(pyopenssl.FILETYPE_ASN1, open(self.certificate).read())
+            except IOError:
+                logger('%s: unable to read %s' % (inspect.stack()[0][3], self.certificate))
+                return False
+            
+            pub_key = cert.get_pubkey()            
+            pub_asn1 = pyopenssl.dump_privatekey(pyopenssl.FILETYPE_ASN1, pub_key)            
+            pub_der = asn1.DerSequence()            
+            pub_der.decode(pub_asn1)
+            rsa_key = RSA.construct((pub_der[1], pub_der[2]))            
+            pub_der[:] = [ rsa_key.key.n, rsa_key.key.e ]
+            d = dict()
+            d['certificate'] = b64encode(pyopenssl.dump_certificate(pyopenssl.FILETYPE_ASN1, cert))            
+            d['public_key'] = b64encode(pub_der.encode())            
+            d['thumbprint'] = cert.digest(self.algorithm).replace(':', '')
+            return d
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
     
-    def add_management_certificate(self):
-        pass
+    def add_management_certificate(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+            
+            self.algorithm = self.get_params(key='algorithm', params=arg, default=self.default_algorithm)
+            self.certificate = self.get_params(key='certificate', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            result = self.get_pub_key_and_thumbprint_from_x509_cert(certificate=self.certificate, algorithm=self.algorithm)
+            self.certificate = result['certificate']
+            self.public_key = result['public_key']
+            self.thumbprint = result['thumbprint']
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                result = self.sms.add_management_certificate(self.public_key, self.thumbprint, self.certificate)     
+                if result is not None:
+                        d = dict()
+                        operation = self.sms.get_operation_status(result.request_id)
+                        d['result'] = result.__dict__
+                        d['operation'] = operation.__dict__
+                        if not self.async:
+                            d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                            return d
+                        else:
+                            return d
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
     
     def add_os_image(self):
         pass
@@ -1287,17 +1401,18 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     d['result'] = result.__dict__
                     d['operation'] = operation.__dict__
                     d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                    d['delete_disks'] = list()
                     if self.delete_disks:
                         for disk in d['disks']:
                             d['delete_disks'] = list()
                             logger(message='%s: deleting disk %s attached to %s' % (inspect.stack()[0][3],
                                                                                     disk['name'],
                                                                                     disk['attached_to']))
-                            d['delete_disks'] = {'result': self.delete_disk({'disk': disk['name'],
-                                                                             'delete_vhds': self.delete_vhds,
-                                                                             'readonly': self.readonly,
-                                                                             'verbose': False}),
-                                                 'disk': disk['name']}
+                            d['delete_disks'].append({'result': self.delete_disk({'disk': disk['name'],
+                                                                                  'delete_vhds': self.delete_vhds,
+                                                                                  'readonly': self.readonly,
+                                                                                  'verbose': False}),
+                                                      'disk': disk['name']})
                     return d
                 else:                    
                     return d
@@ -1352,7 +1467,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if not self.readonly:
                 result = self.sms.delete_dns_server(self.service, self.deployment, self.name)        
                 if result is not None:
-                    if not self.readonly:
                         d = dict()
                         operation = self.sms.get_operation_status(result.request_id)
                         d['result'] = result.__dict__
@@ -1361,11 +1475,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
                             d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
                             return d
                         else:
-                            return d
-                    else:
-                        logger('%s: limited to read-only operations' % inspect.stack()[0][3])
-                else:
-                    return False
+                            return d                        
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -1373,8 +1485,35 @@ class AzureCloudClass(BaseCloudHarnessClass):
     def delete_hosted_service(self):
         pass
     
-    def delete_management_certificate(self):
-        pass
+    def delete_management_certificate(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.thumbprint = self.get_params(key='thumbprint', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+            
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                result = self.sms.delete_management_certificate(self.thumbprint)        
+                if result is not None:
+                    d = dict()
+                    operation = self.sms.get_operation_status(result.request_id)
+                    d['result'] = result.__dict__
+                    d['operation'] = operation.__dict__
+                    if not self.async:
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return d
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
     
     def delete_os_image(self):
         pass
@@ -1460,10 +1599,29 @@ class AzureCloudClass(BaseCloudHarnessClass):
             return False
 
     def get_certificate_from_publish_settings(self, *args):
-        subscription_id = get_certificate_from_publish_settings(publish_settings_path='MyAccount.PublishSettings',
-                                                                path_to_write_certificate=self.default_certificate_path,
-                                                                subscription_id=self.subscription_id)
-        return subscription_id
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.publish_settings = self.get_params(key='publish_settings', params=arg, default=None)
+            self.certificate = self.get_params(key='certificate', params=arg, default=None)
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                from azure.servicemanagement import get_certificate_from_publish_settings             
+                return get_certificate_from_publish_settings(publish_settings_path=self.publish_settings,
+                                                             path_to_write_certificate=self.certificate,
+                                                             subscription_id=self.subscription_id)
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])            
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
 
     def get_storage_account_properties(self, *args):
         try:
@@ -1726,15 +1884,14 @@ class AzureCloudClass(BaseCloudHarnessClass):
             
             if verbose: pprint.pprint(self.__dict__)
             
-            disks = self.list_collection({'action': 'list_disks',
-                                          'verbose': False})
+            disks = self.list_collection({'action': 'list_disks', 'verbose': False})
             
-            try:
-                d = [k for k in disks if k is not None and k['attached_to']['role_name'] == self.name and k['attached_to']['deployment_name'] == self.deployment and k['attached_to']['hosted_service_name'] == self.service]
-            except TypeError:
-                pass
-            finally:
-                return d
+            result = []
+            result = [k for k in disks if k['attached_to'] is not None and
+                      k['attached_to']['role_name'] == self.name and
+                      k['attached_to']['deployment_name'] == self.deployment and
+                      k['attached_to']['hosted_service_name'] == self.service]
+            return result
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -2581,64 +2738,11 @@ if __name__ == '__main__':
     if arg.provider in ['azure']:
         az = AzureCloudClass(subscription_id=arg.subscription_id, certificate_path=arg.certificate_path)
 
-        for action in az.actions:            
+        for action in az.actions:
             if action['action'] == arg.action and action['collection']:
                 pprint.pprint(az.list_collection(arg.__dict__))
-                sys.exit(0)
-        
-        if arg.action in ['x_ms_version']: pprint.pprint(az.x_ms_version())
-        elif arg.action in ['host']: pprint.pprint(az.host())
-        elif arg.action in ['cert_file']: pprint.pprint(az.cert_file())
-        elif arg.action in ['content_type']: pprint.pprint(az.content_type())
-        elif arg.action in ['timeout']: pprint.pprint(az.timeout())
-        elif arg.action in ['sub_id']: pprint.pprint(az.sub_id())
-        elif arg.action in ['request_session']: pprint.pprint(az.request_session())
-        elif arg.action in ['requestid']: pprint.pprint(az.requestid())
-        elif arg.action in ['get_certificate_from_publish_settings']: az.get_certificate_from_publish_settings(arg.__dict__)
-        elif arg.action in ['list_resource_extension_versions']: pprint.pprint(az.list_resource_extension_versions(arg.__dict__))
-        elif arg.action in ['list_service_certificates']: pprint.pprint(az.list_service_certificates(arg.__dict__))
-        elif arg.action in ['list_subscription_operations']: pprint.pprint(az.list_subscription_operations(arg.__dict__))
-        elif arg.action in ['check_hosted_service_name_availability']: pprint.pprint(az.check_hosted_service_name_availability(arg.__dict__))
-        elif arg.action in ['check_storage_account_name_availability']: pprint.pprint(az.check_storage_account_name_availability(arg.__dict__))
-        elif arg.action in ['create_affinity_group']: pprint.pprint(az.create_affinity_group(arg.__dict__))
-        elif arg.action in ['delete_affinity_group']: pprint.pprint(az.delete_affinity_group(arg.__dict__))
-        elif arg.action in ['get_affinity_group_properties']: pprint.pprint(az.get_affinity_group_properties(arg.__dict__))
-        elif arg.action in ['update_affinity_group']: pprint.pprint(az.update_affinity_group(arg.__dict__))
-        elif arg.action in ['create_virtual_machine_deployment']: pprint.pprint(az.create_virtual_machine_deployment(arg.__dict__))
-        elif arg.action in ['add_role']: pprint.pprint(az.add_role(arg.__dict__))
-        elif arg.action in ['get_storage_account_properties']: pprint.pprint(az.get_storage_account_properties(arg.__dict__))
-        elif arg.action in ['get_deployment_by_slot']: pprint.pprint(az.get_deployment_by_slot(arg.__dict__))
-        elif arg.action in ['get_deployment_by_name']: pprint.pprint(az.get_deployment_by_name(arg.__dict__))
-        elif arg.action in ['get_role']: pprint.pprint(az.get_role(arg.__dict__))
-        elif arg.action in ['get_data_disk']: pprint.pprint(az.get_data_disk(arg.__dict__))
-        elif arg.action in ['get_disk']: pprint.pprint(az.get_disk(arg.__dict__))
-        elif arg.action in ['get_disk_by_role_name']: pprint.pprint(az.get_disk_by_role_name(arg.__dict__))
-        elif arg.action in ['get_hosted_service_properties']: pprint.pprint(az.get_hosted_service_properties(arg.__dict__))        
-        elif arg.action in ['get_management_certificate']: pprint.pprint(az.get_management_certificate(arg.__dict__))        
-        elif arg.action in ['get_operation_status']: pprint.pprint(az.get_operation_status(arg.__dict__))
-        elif arg.action in ['delete_role']: pprint.pprint(az.delete_role(arg.__dict__))
-        elif arg.action in ['delete_disk']: pprint.pprint(az.delete_disk(arg.__dict__))
-        elif arg.action in ['wait_for_operation_status']: pprint.pprint(az.wait_for_operation_status())
-        elif arg.action in ['set_epacls']: pprint.pprint(az.set_epacls(arg.__dict__))
-        elif arg.action in ['get_epacls']: pprint.pprint(az.get_epacls(arg.__dict__))
-        elif arg.action in ['reboot_role_instance']: pprint.pprint(az.reboot_role_instance(arg.__dict__))
-        elif arg.action in ['shutdown_role']: pprint.pprint(az.shutdown_role(arg.__dict__))
-        elif arg.action in ['restart_role']: pprint.pprint(az.restart_role(arg.__dict__))
-        elif arg.action in ['start_role']: pprint.pprint(az.start_role(arg.__dict__))
-        elif arg.action in ['start_roles']: pprint.pprint(az.start_roles(arg.__dict__))
-        elif arg.action in ['shutdown_roles']: pprint.pprint(az.shutdown_roles(arg.__dict__))
-        elif arg.action in ['delete_dns_server']: pprint.pprint(az.delete_dns_server(arg.__dict__))
-        elif arg.action in ['add_dns_server']: pprint.pprint(az.add_dns_server(arg.__dict__))
-        elif arg.action in ['get_service_certificate']: pprint.pprint(az.get_service_certificate(arg.__dict__))
-        elif arg.action in ['get_storage_account_keys']: pprint.pprint(az.get_storage_account_keys(arg.__dict__))
-        elif arg.action in ['update_role']: pprint.pprint(az.update_role(arg.__dict__))
-        elif arg.action in ['add_resource_extension']: pprint.pprint(az.add_resource_extension(arg.__dict__))
-        elif arg.action in ['add_data_disk']: pprint.pprint(az.add_data_disk(arg.__dict__))
-        elif arg.action in ['delete_deployment']: pprint.pprint(az.delete_deployment(arg.__dict__))
-        elif arg.action in ['create_deployment']: pprint.pprint(az.create_deployment(arg.__dict__))
-        else:
-            logger(message='unknown action %s' % arg.action)
-            sys.exit(1)
+            elif action['action'] == arg.action and not action['collection']:
+                method = getattr(az, arg.action)
+                pprint.pprint(method(arg.__dict__))
     else:
         logger(message='unknown provider %s' % arg.provider)
-        sys.exit(1)
