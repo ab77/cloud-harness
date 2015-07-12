@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: cp1252 -*-
 
 '''
 Version: 0.1
@@ -18,12 +17,17 @@ import time, sys, os, argparse, logging, json, pprint, ConfigParser, hashlib, st
 from datetime import date, timedelta, datetime
 from calendar import timegm
 from random import SystemRandom, randint
-from requests import Session
 from xml.etree.ElementTree import Element, SubElement, tostring, fromstring
 from base64 import b64encode
 from urlparse import urlsplit, urlunsplit, parse_qs
 from urllib import quote_plus
 from functools import wraps
+
+try:
+    from requests import Session
+except ImportError:
+    sys.stderr.write('ERROR: Python module "requests" not found, please run "pip install requests".\n')
+    sys.exit(1)
 
 try:
     from azure import *
@@ -50,11 +54,11 @@ def recurse_dict(d):
         else:
             return v
 
-defaultTries = 3
-defaultDelay = 2
-defaultBackoff = 2
+DEFAULT_TRIES = 3
+DEFAULT_DELAY = 2
+DEFAULT_BACKOFF = 2
 
-def retry(ExceptionToCheck, tries=defaultTries, delay=defaultDelay, backoff=defaultBackoff, cdata=None):
+def retry(ExceptionToCheck, tries=DEFAULT_TRIES, delay=DEFAULT_DELAY, backoff=DEFAULT_BACKOFF, cdata=None):
     """Retry calling the decorated function using an exponential backoff.
 
     http://www.saltycrane.com/blog/2009/11/trying-out-retry-decorator-python/
@@ -130,7 +134,6 @@ def args():
     azure.add_argument('--ssh_auth', action='store_true', required=False, help='Linux SSH key authentication')
     azure.add_argument('--readonly', action='store_true', required=False, help='limit to read-only operations')
     azure.add_argument('--verbose', action='store_true', required=False, help='verbose output')
-    azure.add_argument('--ssh_public_key_cert', type=str, required=False, default=AzureCloudClass.default_ssh_public_key_cert, help='Linux SSH certificate with public key path (default %s)' % AzureCloudClass.default_ssh_public_key_cert)
     azure.add_argument('--custom_data_file', type=str, required=False, help='custom data file')
     azure.add_argument('--algorithm', type=str, default=AzureCloudClass.default_algorithm, required=False, help='thumbprint algorithm (default %s)' % AzureCloudClass.default_algorithm)
     azure.add_argument('--os', type=str, required=False, choices=['Windows', 'Linux'], help='OS type')
@@ -163,7 +166,7 @@ def logger(message=None):
 class BaseCloudHarnessClass():
     debug = True
     log = True
-    proxy = True
+    proxy = False
     ssl_verify = False
     proxy_host = 'localhost'
     proxy_port = 8888
@@ -190,8 +193,7 @@ class BaseCloudHarnessClass():
         default_windows_customscript_name = dict(cp.items('CustomScriptExtensionForWindows'))['default_windows_customscript_name']
         default_linux_customscript_name = dict(cp.items('CustomScriptExtensionForLinux'))['default_linux_customscript_name']
         default_remote_subnets = cp.items('DefaultEndpointACL')
-        default_ssh_public_key_cert = dict(cp.items('LinuxConfiguration'))['default_ssh_public_key_cert']       
-        default_ssh_public_key = dict(cp.items('LinuxConfiguration'))['default_ssh_public_key']
+        default_certificate = dict(cp.items('LinuxConfiguration'))['default_certificate']      
         default_linux_custom_data_file = dict(cp.items('LinuxConfiguration'))['default_linux_custom_data_file']
         default_windows_custom_data_file = dict(cp.items('WindowsConfiguration'))['default_windows_custom_data_file']
         default_storage_account = dict(cp.items('AzureConfig'))['default_storage_account']
@@ -206,8 +208,7 @@ class BaseCloudHarnessClass():
         default_windows_customscript_name = None
         default_linux_customscript_name = None
         default_remote_subnets = None
-        default_ssh_public_key_cert = None
-        default_ssh_public_key = None
+        default_certificate = None
         default_storage_account = None
         default_storage_container = None
         default_chef_autoupdate_client = None
@@ -449,7 +450,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.username = self.get_params(key='username', params=arg, default=self.default_user_name)        
             self.eps = self.get_params(key='eps', params=arg, default=self.default_endpoints)
             self.rextrs = self.get_params(key='rextrs', params=arg, default=None)
-            self.ssh_public_key_cert = self.get_params(key='ssh_public_key_cert', params=arg, default=self.default_ssh_public_key_cert)
+            self.certificate = self.get_params(key='certificate', params=arg, default=self.default_certificate)
+            self.algorithm = self.get_params(key='algorithm', params=arg, default=self.default_algorithm)
             self.async = self.get_params(key='async', params=arg, default=None)    
             self.readonly = self.get_params(key='readonly', params=arg, default=None)                
             self.ssh_auth = self.get_params(key='ssh_auth', params=arg, default=None)                
@@ -518,19 +520,15 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                        disable_ssh_password_authentication=self.ssh_auth,
                                                        custom_data=self.custom_data)                    
                 if self.ssh_auth:
-                    h = hashlib.sha1()
-                    try:
-                        with open(self.ssh_public_key_cert, 'rb') as cf:
-                            h.update(cf.read())
-                    except IOError:
-                        logger('%s: unable to read %s' % (inspect.stack()[0][3],
-                                                          self.ssh_public_key_cert))
-                        return False                        
                     ssh = SSH()
                     pks = PublicKeys()
                     pk = PublicKey()
                     pk.path = '/home/%s/.ssh/authorized_keys' % self.username
-                    pk.fingerprint = h.hexdigest().upper()
+
+                    result = self.get_pub_key_and_thumbprint_from_x509_cert(certificate=self.certificate, algorithm=self.algorithm)
+                    self.thumbprint = result['thumbprint']
+                    pk.fingerprint = self.thumbprint
+                   
                     pks.public_keys.append(pk)
                     ssh.public_keys = pks
                     self.os_config.ssh = ssh
@@ -1057,7 +1055,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.username = self.get_params(key='username', params=arg, default=self.default_user_name)
             self.password = self.get_params(key='password', params=arg, default=None)
             self.vmaop = self.get_params(key='vmaop', params=arg, default=self.default_vmaop)
-            self.ssh_public_key = self.get_params(key='ssh_public_key', params=arg, default=self.default_ssh_public_key)
+            self.certificate = self.get_params(key='certificate', params=arg, default=self.default_certificate)
             self.pwd_expiry = self.get_params(key='pwd_expiry', params=arg, default=self.default_pwd_expiry)
 
             pub_config = dict()
@@ -1105,11 +1103,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     version = rext['version']          
                 self.version = version.split('.')[0] + '.*'
                 pub_config['timestamp'] = '%s' % timegm(time.gmtime())
-                with open(self.ssh_public_key, 'rb') as cf:
-                    ssh_cert = cf.read()                        
+
+                result = self.get_pub_key_and_thumbprint_from_x509_cert(certificate=self.certificate, algorithm=self.algorithm)
+                self.public_key = result['public_key']
+                   
                 if self.vmaop == 'ResetSSHKey':
                     pri_config['username'] = self.username
-                    pri_config['ssh_key'] = ssh_cert
+                    pri_config['ssh_key'] = self.public_key
                 elif self.vmaop == 'ResetPassword':
                     if self.password:
                         pri_config['username'] = self.username
@@ -1123,7 +1123,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     if self.password:
                         pri_config['username'] = self.username
                         pri_config['password'] = self.password
-                        pri_config['ssh_key'] = ssh_cert
+                        pri_config['ssh_key'] = self.public_key
                     else:                            
                         logger(pprint.pprint(self.__dict__))
                         logger('VMAccess operation %s requires a new password' % self.vmaop)
@@ -1437,7 +1437,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             if not self.readonly:
 
-                @retry(WindowsAzureConflictError, tries=5, delay=15, backoff=3, cdata='method=%s()' % inspect.stack()[0][3])
+                @retry(WindowsAzureConflictError, tries=5, delay=15, backoff=2, cdata='method=%s()' % inspect.stack()[0][3])
                 def delete_disk_retry():
                     return self.sms.delete_disk(self.disk, delete_vhd=self.delete_vhds)
                 
