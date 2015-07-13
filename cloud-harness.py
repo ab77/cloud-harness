@@ -34,6 +34,7 @@ try:
     from azure.servicemanagement import *
     from azure.storage import AccessPolicy
     from azure.storage.sharedaccesssignature import SharedAccessPolicy, SharedAccessSignature
+    from azure.storage import BlobService
 except ImportError:
     sys.stderr.write('ERROR: Python module "azure" not found, please run "pip install azure".\n')
     sys.exit(1)
@@ -42,6 +43,19 @@ try:
     import xmltodict
 except ImportError:
     sys.stderr.write('ERROR: Python module "xmltodict" not found, please run "pip install xmltodict".\n')
+    sys.exit()
+
+try:
+    import OpenSSL.crypto as pyopenssl
+except ImportError:
+    sys.stderr.write('ERROR: Python module "pyOpenSSL" not found, please run "pip install pyopenssl".\n')
+    sys.exit()
+
+try:
+    from Crypto.Util import asn1
+    from Crypto.PublicKey import RSA    
+except ImportError:
+    sys.stderr.write('ERROR: Python module "PyCrypto" not found, please run "pip install pycrypto".\n')
     sys.exit()
 
 def mkdate(dt, format):
@@ -100,7 +114,7 @@ def args():
     azure.add_argument('provider', action='store_const', const='azure', help=argparse.SUPPRESS)
     azure.add_argument('--action', type=str, required=False, default=AzureCloudClass.default_action, choices=[a['action'] for a in AzureCloudClass.actions], help='action (default: %s)' % AzureCloudClass.default_action)
     azure.add_argument('--subscription_id', type=str, required=False, default=AzureCloudClass.default_subscription_id, help='Azure subscription ID (default: %s)' % AzureCloudClass.default_subscription_id)
-    azure.add_argument('--certificate_path', type=str, required=False, default=AzureCloudClass.default_certificate_path, help='Azure management certificate (default: %s)' % AzureCloudClass.default_certificate_path)
+    azure.add_argument('--management_certificate', type=str, required=False, default=AzureCloudClass.default_management_certificate, help='Azure management certificate (default: %s)' % AzureCloudClass.default_management_certificate)
     azure.add_argument('--start_date', type=str, default=mkdate(AzureCloudClass.default_start_date, '%Y-%m-%d'), help='start date for list_subscription_operations (default: %s)' % mkdate(AzureCloudClass.default_start_date, '%Y-%m-%d'))
     azure.add_argument('--end_date', type=str, default=mkdate(AzureCloudClass.default_end_date, '%Y-%m-%d'), help='end date for subscription_operations (default: %s)' % mkdate(AzureCloudClass.default_end_date, '%Y-%m-%d'))
     azure.add_argument('--service', type=str, required=False, help='hosted service name')
@@ -164,12 +178,8 @@ def logger(message=None):
     if BaseCloudHarnessClass.log: logging.info('%s\n' % repr(message))         
 
 class BaseCloudHarnessClass():
+    log = False
     debug = True
-    log = True
-    proxy = False
-    ssl_verify = False
-    proxy_host = 'localhost'
-    proxy_port = 8888
     log_file = '%s' % os.path.basename(__file__).replace('py', 'log')
     config_file = '%s' % os.path.basename(__file__).replace('py', 'conf')
     cp = ConfigParser.SafeConfigParser()        
@@ -180,26 +190,30 @@ class BaseCloudHarnessClass():
         pass
 
     try:
-        default_subscription_id = dict(cp.items('AzureConfig'))['default_subscription_id']
-        default_certificate_path = dict(cp.items('AzureConfig'))['default_certificate_path']
-        default_chef_server_url = dict(cp.items('ChefClient'))['default_chef_server_url']
-        default_chef_validation_client_name = dict(cp.items('ChefClient'))['default_chef_validation_client_name']
-        default_chef_validation_key_file = dict(cp.items('ChefClient'))['default_chef_validation_key_file']
-        default_chef_run_list = dict(cp.items('ChefClient'))['default_chef_run_list']
-        default_chef_autoupdate_client = dict(cp.items('ChefClient'))['default_chef_autoupdate_client']
-        default_chef_delete_config = dict(cp.items('ChefClient'))['default_chef_delete_config']
-        default_chef_ssl_verify_mode = dict(cp.items('ChefClient'))['default_chef_ssl_verify_mode']
-        default_chef_verify_api_cert = dict(cp.items('ChefClient'))['default_chef_verify_api_cert']        
-        default_windows_customscript_name = dict(cp.items('CustomScriptExtensionForWindows'))['default_windows_customscript_name']
-        default_linux_customscript_name = dict(cp.items('CustomScriptExtensionForLinux'))['default_linux_customscript_name']
+        default_subscription_id = dict(cp.items('AzureConfig'))['subscription_id']
+        default_management_certificate = dict(cp.items('AzureConfig'))['management_certificate']        
+        proxy = dict(cp.items('AzureConfig'))['proxy']
+        proxy_host = dict(cp.items('AzureConfig'))['proxy_host']
+        proxy_port = dict(cp.items('AzureConfig'))['proxy_port']
+        ssl_verify = dict(cp.items('AzureConfig'))['ssl_verify']
+        default_chef_server_url = dict(cp.items('ChefClient'))['chef_server_url']
+        default_chef_validation_client_name = dict(cp.items('ChefClient'))['chef_validation_client_name']
+        default_chef_validation_key_file = dict(cp.items('ChefClient'))['chef_validation_key_file']
+        default_chef_run_list = dict(cp.items('ChefClient'))['chef_run_list']
+        default_chef_autoupdate_client = dict(cp.items('ChefClient'))['chef_autoupdate_client']
+        default_chef_delete_config = dict(cp.items('ChefClient'))['chef_delete_config']
+        default_chef_ssl_verify_mode = dict(cp.items('ChefClient'))['chef_ssl_verify_mode']
+        default_chef_verify_api_cert = dict(cp.items('ChefClient'))['chef_verify_api_cert']        
+        default_windows_customscript_name = dict(cp.items('CustomScriptExtensionForWindows'))['windows_customscript_name']
+        default_linux_customscript_name = dict(cp.items('CustomScriptExtensionForLinux'))['linux_customscript_name']
         default_remote_subnets = cp.items('DefaultEndpointACL')
-        default_certificate = dict(cp.items('LinuxConfiguration'))['default_certificate']      
-        default_linux_custom_data_file = dict(cp.items('LinuxConfiguration'))['default_linux_custom_data_file']
-        default_windows_custom_data_file = dict(cp.items('WindowsConfiguration'))['default_windows_custom_data_file']
-        default_storage_account = dict(cp.items('AzureConfig'))['default_storage_account']
-        default_storage_container = dict(cp.items('AzureConfig'))['default_storage_container']
-        default_patching_healthy_test_script = dict(cp.items('OSPatchingExtensionForLinux'))['default_patching_healthy_test_script']        
-        default_patching_idle_test_script = dict(cp.items('OSPatchingExtensionForLinux'))['default_patching_idle_test_script']
+        default_certificate = dict(cp.items('LinuxConfiguration'))['service_certificate']      
+        default_linux_custom_data_file = dict(cp.items('LinuxConfiguration'))['linux_custom_data_file']
+        default_windows_custom_data_file = dict(cp.items('WindowsConfiguration'))['windows_custom_data_file']
+        default_storage_account = dict(cp.items('AzureConfig'))['storage_account']
+        default_storage_container = dict(cp.items('AzureConfig'))['storage_container']
+        default_patching_healthy_test_script = dict(cp.items('OSPatchingExtensionForLinux'))['patching_healthy_test_script']        
+        default_patching_idle_test_script = dict(cp.items('OSPatchingExtensionForLinux'))['patching_idle_test_script']
     except (KeyError, ConfigParser.NoSectionError):
         default_chef_server_url = None
         default_chef_validation_client_name = None
@@ -219,6 +233,10 @@ class BaseCloudHarnessClass():
         default_patching_idle_test_script = None
         default_linux_custom_data_file = None
         default_windows_custom_data_file = None
+        proxy = False
+        proxy_host = None
+        proxy_port = None
+        ssl_verify = False
         pass
     
 class AzureCloudClass(BaseCloudHarnessClass):
@@ -255,7 +273,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'add_disk', 'params': ['name', 'os', 'image'], 'collection': False},
                {'action': 'add_dns_server', 'params': ['service', 'deployment', 'name', 'ipaddr'], 'collection': False},
                {'action': 'add_management_certificate', 'params': ['certificate'], 'collection': False},
-               {'action': 'add_os_image', 'params': [], 'collection': False},
+               {'action': 'add_os_image', 'params': ['name', 'image', 'os'], 'collection': False},
                {'action': 'add_service_certificate', 'params': [], 'collection': False},
                {'action': 'build_epacls_dict_from_xml', 'params': ['deployment', 'service', 'name'], 'collection': False},
                {'action': 'build_chefclient_resource_extension', 'params': ['os'], 'collection': False},
@@ -273,7 +291,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'capture_vm_image', 'params': [], 'collection': False},
                {'action': 'delete_affinity_group', 'params': ['name'], 'collection': False},
                {'action': 'delete_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
+               {'action': 'delete_os_image', 'params': ['name'], 'collection': False},
                {'action': 'delete_disk', 'params': ['disk'], 'collection': False},
+               {'action': 'delete_disk_blob', 'params': ['image'], 'collection': False},
                {'action': 'delete_deployment', 'params': ['service', 'deployment'], 'collection': False},
                {'action': 'delete_dns_server', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'delete_management_certificate', 'params': ['thumbprint'], 'collection': False},
@@ -287,7 +307,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'get_hosted_service_properties', 'params': ['service'], 'collection': False},
                {'action': 'get_management_certificate', 'params': ['thumbprint'], 'collection': False},
                {'action': 'get_operation_status', 'params': ['request_id'], 'collection': False},
-               {'action': 'get_os_image', 'params': [], 'collection': False},
+               {'action': 'get_os_image', 'params': ['name'], 'collection': False},
                {'action': 'get_reserved_ip_address', 'params': [], 'collection': False},
                {'action': 'get_service_certificate', 'params': ['service', 'thumbprint'], 'collection': False},
                {'action': 'get_storage_account_keys', 'params': ['account'], 'collection': False},
@@ -299,12 +319,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'get_objs_for_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
                {'action': 'get_pub_key_and_thumbprint_from_x509_cert', 'params': ['certificate', 'algorithm'], 'collection': False},
                {'action': 'generate_signed_blob_url', 'params': ['account', 'container', 'script'], 'collection': False},
+               {'action': 'get_epacls', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'perform_get', 'params': ['path'], 'collection': False},
                {'action': 'perform_put', 'params': ['path', 'body'], 'collection': False},
                {'action': 'perform_delete', 'params': ['path'], 'collection': False},
                {'action': 'perform_post', 'params': ['path', 'body'], 'collection': False},
+               {'action': 'upload_disk_blob', 'params': ['image'], 'collection': False},
                {'action': 'set_epacls', 'params': ['service', 'deployment', 'name', 'subnet'], 'collection': False},
-               {'action': 'get_epacls', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'reboot_role_instance', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'start_role', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'start_roles', 'params': ['service', 'deployment', 'name'], 'collection': False},
@@ -322,7 +343,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'update_disk', 'params': [], 'collection': False},
                {'action': 'update_dns_server', 'params': [], 'collection': False},
                {'action': 'update_hosted_service', 'params': [], 'collection': False},
-               {'action': 'update_os_image', 'params': [], 'collection': False},
+               {'action': 'update_os_image', 'params': ['image', 'name'], 'collection': False},
                {'action': 'update_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
                {'action': 'update_storage_account', 'params': [], 'collection': False},
                {'action': 'update_vm_image', 'params': [], 'collection': False},
@@ -367,7 +388,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
     default_patching_duration = '03:00'
     default_host_caching = 'ReadWrite'
     
-    def __init__(self, subscription_id=None, certificate_path=None):
+    def __init__(self, subscription_id=None, management_certificate=None):
         self.service = None
         self.label = None
         self.description = None
@@ -388,12 +409,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
         self.lun = None
         self.location = None
         self.subscription_id = subscription_id or self.default_subscription_id
-        self.certificate_path = certificate_path or self.default_certificate_path
-        if not self.subscription_id or not self.certificate_path:
-            logger('%s: requires an Azure subscription_id and management certificate_path' % inspect.stack()[0][3])
+        self.management_certificate = management_certificate or self.default_management_certificate
+        if not self.subscription_id or not self.management_certificate:
+            logger('%s: requires an Azure subscription_id and management_certificate' % inspect.stack()[0][3])
             sys.exit(1)
         else:
-            self.sms = ServiceManagementService(self.subscription_id, self.certificate_path, request_session=self.set_proxy())
+            self.sms = ServiceManagementService(self.subscription_id, self.management_certificate, request_session=self.set_proxy())
 
     def add_resource_extension(self, *args):
         try:
@@ -729,19 +750,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
     def get_pub_key_and_thumbprint_from_x509_cert(self, **kwargs):
         try:
-            import OpenSSL.crypto as pyopenssl
-        except ImportError:
-            sys.stderr.write('ERROR: Python module "pyOpenSSL" not found, please run "pip install pyopenssl".\n')
-            sys.exit()
-
-        try:
-            from Crypto.Util import asn1
-            from Crypto.PublicKey import RSA    
-        except ImportError:
-            sys.stderr.write('ERROR: Python module "PyCrypto" not found, please run "pip install pycrypto".\n')
-            sys.exit()
-
-        try:
             if not kwargs: return False
             arg = self.verify_params(method=inspect.stack()[0][3], params=kwargs)
             if not arg: return False
@@ -805,9 +813,114 @@ class AzureCloudClass(BaseCloudHarnessClass):
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
-    
-    def add_os_image(self):
-        pass
+
+    def delete_disk_blob(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+            
+            self.image = self.get_params(key='image', params=arg, default=None)
+            self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
+            self.key = self.get_storage_account_keys({'account': self.account,
+                                                      'verbose': False})['storage_service_keys']['primary']
+            self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)       
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+           
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:                
+                blob_service = BlobService(self.account, self.key)                
+                with open(self.image) as f:
+                    result = blob_service.delete_blob(self,
+                                                      self.container,
+                                                      self.image,
+                                                      snapshot=None,
+                                                      timeout=None,
+                                                      x_ms_lease_id=None,
+                                                      x_ms_delete_snapshots=None)
+                return result
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
+    def upload_disk_blob(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+            
+            self.image = self.get_params(key='image', params=arg, default=None)
+            self.disk_size = os.stat(self.image).st_size
+            self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
+            self.key = self.get_storage_account_keys({'account': self.account,
+                                                      'verbose': False})['storage_service_keys']['primary']
+            self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)       
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+           
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:                
+                blob_service = BlobService(self.account, self.key)                
+                with open(self.image) as f:
+                    result = blob_service.put_page_blob_from_file(self.container,
+                                                                  self.image,
+                                                                  f,
+                                                                  count=self.disk_size,
+                                                                  max_connections=4)
+                return result
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
+    def add_os_image(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.name = self.get_params(key='name', params=arg, default=None)
+            if isinstance(self.name, list): self.name = self.name[0]
+            self.image = self.get_params(key='image', params=arg, default=None)
+            self.label = self.get_params(key='label', params=arg, default=self.image)
+            self.os = self.get_params(key='os', params=arg, default=None)
+            self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
+            self.container = self.get_params(key='container', params=arg, default='images')       
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            self.media_link = 'https://%s.blob.core.windows.net/%s/%s' % (self.account,
+                                                                          self.container,
+                                                                          self.image)
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                try:
+                    result = self.sms.add_os_image(self.label, self.media_link, self.name, self.os)
+                    d = dict()
+                    operation = self.sms.get_operation_status(result.request_id)
+                    d['result'] = result.__dict__
+                    d['operation'] = operation.__dict__
+                    if not self.async:
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return d
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
     
     def add_service_certificate(self):
         pass
@@ -1515,8 +1628,41 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
     
-    def delete_os_image(self):
-        pass
+    def delete_os_image(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.name = self.get_params(key='name', params=arg, default=None)
+            if isinstance(self.name, list): self.name = self.name[0]
+            self.delete_vhds = self.get_params(key='delete_vhds', params=arg, default=None)
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                try:
+                    result = self.sms.delete_os_image(self.name, delete_vhd=self.delete_vhds)
+                    d = dict()
+                    operation = self.sms.get_operation_status(result.request_id)
+                    d['result'] = result.__dict__
+                    d['operation'] = operation.__dict__
+                    if not self.async:
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return d
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
     
     def delete_reserved_ip_address(self):
         pass
@@ -1618,7 +1764,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                              path_to_write_certificate=self.certificate,
                                                              subscription_id=self.subscription_id)
             else:
-                logger('%s: limited to read-only operations' % inspect.stack()[0][3])            
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -1817,8 +1963,26 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False       
 
-    def get_os_image(self):
-        pass
+    def get_os_image(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+            
+            self.name = self.get_params(key='name', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+            
+            if verbose: pprint.pprint(self.__dict__)
+            
+            result = self.sms.get_os_image(self.name)
+            
+            if result:
+                return self.dict_from_response_obj(result)
+            else:
+                return None
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False  
 
     def get_reserved_ip_address(self):
         pass
@@ -2225,10 +2389,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
     def set_proxy(self):
         if self.proxy:
             s = Session()
-            s.cert = self.default_certificate_path
-            s.verify = self.ssl_verify
-            s.proxies = {'http' : 'http://%s:%i' % (self.proxy_host, self.proxy_port),
-                         'https': 'https://%s:%i' % (self.proxy_host, self.proxy_port)}
+            s.cert = self.default_management_certificate
+            if self.ssl_verify == 'True':
+                s.verify = True
+            else:
+                s.verify = False
+            s.proxies = {'http' : 'http://%s:%s' % (self.proxy_host, self.proxy_port),
+                         'https': 'https://%s:%s' % (self.proxy_host, self.proxy_port)}
             return s
         else:
             return None
@@ -2505,8 +2672,50 @@ class AzureCloudClass(BaseCloudHarnessClass):
     def update_hosted_service(self):
         pass
 
-    def update_os_image(self):
-        pass
+    def update_os_image(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.name = self.get_params(key='name', params=arg, default=None)
+            if isinstance(self.name, list): self.name = self.name[0]
+            self.label = self.get_params(key='label', params=arg, default=self.name)
+            self.image = self.get_params(key='image', params=arg, default=None)
+            self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
+            self.container = self.get_params(key='container', params=arg, default='images')       
+            self.os = self.get_params(key='os', params=arg, default=None)
+
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            self.media_link = 'https://%s.blob.core.windows.net/%s/%s' % (self.account,
+                                                                          self.container,
+                                                                          self.image)
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                try:
+                    result = self.sms.update_os_image(self.name, self.label, self.media_link,
+                                                      self.image, self.os)
+                    d = dict()
+                    operation = self.sms.get_operation_status(result.request_id)
+                    d['result'] = result.__dict__
+                    d['operation'] = operation.__dict__
+                    if not self.async:
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return d
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
 
     def get_os_for_role(self, **kwargs):
         try:
@@ -2736,7 +2945,7 @@ if __name__ == '__main__':
     if BaseCloudHarnessClass.log: logging.basicConfig(filename=BaseCloudHarnessClass.log_file, format='%(asctime)s %(message)s', level=logging.INFO)
     arg = args()
     if arg.provider in ['azure']:
-        az = AzureCloudClass(subscription_id=arg.subscription_id, certificate_path=arg.certificate_path)
+        az = AzureCloudClass(subscription_id=arg.subscription_id, management_certificate=arg.management_certificate)
 
         for action in az.actions:
             if action['action'] == arg.action and action['collection']:
