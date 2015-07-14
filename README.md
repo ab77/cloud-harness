@@ -8,11 +8,12 @@ Currently only one provider is supported:
 ### Installation and Configuration
 * from a working Python environment, run `pip install azure && /opt && git clone https://github.com/ab77/cloud-harness.git && cd ./cloud-harness`
 * rename cloud-harness.sample.conf to cloud-harness.conf
-* obtain your `Azure` config by [downloading](https://windows.azure.com/download/publishprofile.aspx) the publish settings file
-* [extract](http://stuartpreston.net/2015/02/retrieving-microsoft-azure-management-certificates-for-use-in-cross-platform-automationprovisioning-tools/) your Azure Management Certificate into PEM format from the publish settings file
-* edit cloud-harness.conf, set your `default_subscription_id` and `default_certificate_path`
+* [download](https://windows.azure.com/download/publishprofile.aspx) and save your Azure PublishSettings file as `MyAzure.publishsettings`
+* [extract](http://stuartpreston.net/2015/02/retrieving-microsoft-azure-management-certificates-for-use-in-cross-platform-automationprovisioning-tools/) your Azure management certificate into PEM format from the `PublishSettings` file manually;
+* or run `run ./cloud-harness.py azure --action get_certificate_from_publish_settings --publish_settings MyAzure.publishsettings --certificate management_certificate.pem` which will do it automatically
+* edit cloud-harness.conf and set your `default_subscription_id` (for convinience, your subscription_id is returned from `get_certificate_from_publish_settings` operation in the previous step)
 * uncomment other configuration options as required
-* run `python ./cloud-harness.py azure` for the default action `[list_hosted_services]`
+* run `python ./cloud-harness.py azure` for the default action `list_hosted_services`
 * run `python ./cloud-harness.py azure --help` to see all available command line options
 * to get get a list of required parameters for a particular action (e.g. `add_role`), run `python ./cloud-harness.py azure --action add_role`
 
