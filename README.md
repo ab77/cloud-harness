@@ -10,7 +10,7 @@ Currently only one provider is supported:
 * rename cloud-harness.sample.conf to cloud-harness.conf
 * [download](https://manage.windowsazure.com/publishsettings) and save your Azure PublishSettings file as `MyAzure.publishsettings`
 * [extract](http://stuartpreston.net/2015/02/retrieving-microsoft-azure-management-certificates-for-use-in-cross-platform-automationprovisioning-tools/) your Azure management certificate into PEM format from the `PublishSettings` file manually;
-* or run `run ./cloud-harness.py azure --action get_certificate_from_publish_settings --publish_settings MyAzure.publishsettings --certificate management_certificate.pem` which will do it automatically
+* or run `./cloud-harness.py azure --action get_certificate_from_publish_settings --publish_settings MyAzure.publishsettings --certificate management_certificate.pem` which will do it automatically
 * edit cloud-harness.conf and set your `default_subscription_id` (for convinience, your subscription_id is returned from `get_certificate_from_publish_settings` operation in the previous step)
 * uncomment other configuration options as required
 * run `python ./cloud-harness.py azure` for the default action `list_hosted_services`
