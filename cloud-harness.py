@@ -126,13 +126,15 @@ def args():
     azure.add_argument('--end_date', type=str, default=mkdate(AzureCloudClass.default_end_date, '%Y-%m-%d'), help='end date for subscription_operations (default: %s)' % mkdate(AzureCloudClass.default_end_date, '%Y-%m-%d'))
     azure.add_argument('--service', type=str, required=False, help='hosted service name')
     azure.add_argument('--account', type=str, required=False, default=BaseCloudHarnessClass.default_storage_account, help='storage account name (default: %s)' % BaseCloudHarnessClass.default_storage_account)
+    azure.add_argument('--account_type', type=str, required=False, default=AzureCloudClass.default_account_type, choices=['Standard_LRS', 'Standard_ZRS', 'Standard_GRS', 'Standard_RAGRS'], help='storage account type (default %s)' % AzureCloudClass.default_account_type)
+    azure.add_argument('--key_type', type=str, required=False, default=AzureCloudClass.default_key_type, choices=['Primary', 'Secondary'], help='storage account key type (default %s)' % AzureCloudClass.default_key_type)
     azure.add_argument('--container', type=str, required=False, default=BaseCloudHarnessClass.default_storage_container, help='storage container name (default: %s)' % BaseCloudHarnessClass.default_storage_container)
     azure.add_argument('--label', type=str, required=False, help='resource label')
     azure.add_argument('--description', type=str, required=False, help='resource description')
     azure.add_argument('--name', type=str, nargs='+', required=False, help='resource name(s)')
     azure.add_argument('--group', type=str, required=False, help='group name')
     azure.add_argument('--dns', type=str, required=False, help=' dns server name')
-    azure.add_argument('--ipaddr', type=str, required=False, help='resource IP address')
+    azure.add_argument('--ipaddr', type=str, required=False, help='reserved IP address name or DNS server IP address')
     azure.add_argument('--image', type=str, required=False, help='disk image blob name')
     azure.add_argument('--family', type=str, required=False, help='OS image family')
     azure.add_argument('--disk', type=str, required=False, help='disk name')
@@ -143,15 +145,21 @@ def args():
     azure.add_argument('--certificate', type=str, required=False, help='certificate file')
     azure.add_argument('--publish_settings', type=str, required=False, help='Azure publish_settings file')    
     azure.add_argument('--request_id', type=str, required=False, help='request ID')    
-    azure.add_argument('--status', type=str, required=False, default=AzureCloudClass.default_status, choices=['Succeeded', 'InProgress', 'Failed'], help='wait for operation status (default %r)' % AzureCloudClass.default_status)
-    azure.add_argument('--post_capture_action', type=str, required=False, default=AzureCloudClass.default_post_capture_action, choices=['Delete', 'Reprovision'], help='post capture action (default %r)' % AzureCloudClass.default_post_capture_action)
+    azure.add_argument('--status', type=str, required=False, default=AzureCloudClass.default_status, choices=['Succeeded', 'InProgress', 'Failed'], help='wait for operation status (default %s)' % AzureCloudClass.default_status)
+    azure.add_argument('--post_capture_action', type=str, required=False, default=AzureCloudClass.default_post_capture_action, choices=['Delete', 'Reprovision'], help='post capture action (default %s)' % AzureCloudClass.default_post_capture_action)
     azure.add_argument('--wait', type=int, required=False, default=AzureCloudClass.default_wait, help='operation wait time (default %i)' % AzureCloudClass.default_wait)
     azure.add_argument('--timeout', type=int, required=False, default=AzureCloudClass.default_timeout, help='operation timeout (default %i)' % AzureCloudClass.default_timeout)
-    azure.add_argument('--deployment', type=str, required=False, help='deployment name')
+    azure.add_argument('--deployment', type=str, required=False, help='(source) deployment name')
+    azure.add_argument('--production_deployment', type=str, required=False, help='production deployment name')
+    azure.add_argument('--package_url', type=str, required=False, help='service package URL')
+    azure.add_argument('--package_config', type=str, required=False, help='service package configuration file')
+    azure.add_argument('--deployment_status', type=str, required=False, choices=['Running', 'Suspended'], help='deployment status')
+    azure.add_argument('--mode', type=str, required=False, default=AzureCloudClass.default_mode, choices=['auto', 'manual'], help='deployment rollback mode (default %s)' % AzureCloudClass.default_mode)
+    azure.add_argument('--force', action='store_true', required=False, help='accept data loss during deployment rollback')
     azure.add_argument('--slot', type=str, required=False, default=AzureCloudClass.default_deployment_slot, help='deployment slot (default %s)' % AzureCloudClass.default_deployment_slot)
     azure.add_argument('--size', type=str, required=False, default=AzureCloudClass.default_size, help='VM size (default %s)' % AzureCloudClass.default_size)
     azure.add_argument('--disk_size', type=int, required=False, default=AzureCloudClass.default_disk_size, help='disk size in GB (default %s)' % AzureCloudClass.default_disk_size)
-    azure.add_argument('--host_caching', type=str, required=False, default=AzureCloudClass.default_host_caching, choices=['ReadOnly', 'None', 'ReadOnly', 'ReadWrite'], help='wait for operation status (default %r)' % AzureCloudClass.default_host_caching)
+    azure.add_argument('--host_caching', type=str, required=False, default=AzureCloudClass.default_host_caching, choices=['ReadOnly', 'None', 'ReadOnly', 'ReadWrite'], help='disk caching (default %s)' % AzureCloudClass.default_host_caching)
     azure.add_argument('--username', type=str, required=False, default=AzureCloudClass.default_user_name, help='username for VM deployments (default %s)' % AzureCloudClass.default_user_name)
     azure.add_argument('--password', type=str, required=False, help='password for VM deployments')
     azure.add_argument('--pwd_expiry', type=int, required=False, default=AzureCloudClass.default_pwd_expiry, help='VMAccess password expiry (default: %i days)' % AzureCloudClass.default_pwd_expiry)
@@ -301,9 +309,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'create_affinity_group', 'params': ['name', 'location'], 'collection': False},
                {'action': 'create_hosted_service', 'params': ['service', 'label'], 'collection': False},
                {'action': 'create_virtual_machine_deployment', 'params': ['deployment', 'service', 'os', 'name', 'image', 'subnet', 'account', 'network'], 'collection': False},
-               {'action': 'change_deployment_configuration', 'params': [], 'collection': False},
+               {'action': 'change_deployment_configuration', 'params': ['service', 'deployment', 'package_config'], 'collection': False},
+               {'action': 'create_storage_account', 'params': ['account'], 'collection': False},
                {'action': 'capture_role', 'params': ['service', 'deployment', 'name', 'image'], 'collection': False},
                {'action': 'capture_vm_image', 'params': ['service', 'deployment', 'name', 'image'], 'collection': False},
+               {'action': 'create_deployment', 'params': ['service', 'deployment', 'name', 'package_url', 'package_config'], 'collection': False},
+               {'action': 'create_reserved_ip_address', 'params': ['ipaddr', 'location'], 'collection': False},
                {'action': 'delete_affinity_group', 'params': ['name'], 'collection': False},
                {'action': 'delete_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
                {'action': 'delete_os_image', 'params': ['name'], 'collection': False},
@@ -314,6 +325,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'delete_management_certificate', 'params': ['thumbprint'], 'collection': False},
                {'action': 'delete_service_certificate', 'params': ['service', 'thumbprint'], 'collection': False},
                {'action': 'delete_hosted_service', 'params': ['service'], 'collection': False},
+               {'action': 'delete_reserved_ip_address', 'params': ['ipaddr'], 'collection': False},
+               {'action': 'delete_storage_account', 'params': ['account'], 'collection': False},
+               {'action': 'delete_role_instances', 'params': ['service', 'deployment', 'name'], 'collection': False},
+               {'action': 'delete_data_disk', 'params': ['service', 'deployment', 'name', 'lun'], 'collection': False},
                {'action': 'get_certificate_from_publish_settings', 'params': ['publish_settings', 'certificate'], 'collection': False},
                {'action': 'get_storage_account_properties', 'params': [], 'collection': False},
                {'action': 'get_deployment_by_slot', 'params': ['service'], 'collection': False},
@@ -325,7 +340,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'get_management_certificate', 'params': ['thumbprint'], 'collection': False},
                {'action': 'get_operation_status', 'params': ['request_id'], 'collection': False},
                {'action': 'get_os_image', 'params': ['name'], 'collection': False},
-               {'action': 'get_reserved_ip_address', 'params': [], 'collection': False},
+               {'action': 'get_reserved_ip_address', 'params': ['ipaddr'], 'collection': False},
                {'action': 'get_service_certificate', 'params': ['service', 'thumbprint'], 'collection': False},
                {'action': 'get_storage_account_keys', 'params': ['account'], 'collection': False},
                {'action': 'get_subscription', 'params': [], 'collection': False},
@@ -350,21 +365,21 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'rebuild_role_instance', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'regenerate_storage_account_keys', 'params': ['account'], 'collection': False},
                {'action': 'reimage_role_instance', 'params': ['service', 'deployment', 'name'], 'collection': False},
-               {'action': 'rollback_update_or_upgrade', 'params': [], 'collection': False},
-               {'action': 'swap_deployment', 'params': [], 'collection': False},
+               {'action': 'rollback_update_or_upgrade', 'params': ['service', 'deployment'], 'collection': False},
+               {'action': 'swap_deployment', 'params': ['service', 'deployment', 'production_deployment'], 'collection': False},
                {'action': 'shutdown_role', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'shutdown_roles', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'update_affinity_group', 'params': ['name'], 'collection': False},
                {'action': 'update_data_disk', 'params': [], 'collection': False},
-               {'action': 'update_deployment_status', 'params': [], 'collection': False},
-               {'action': 'update_disk', 'params': [], 'collection': False},
+               {'action': 'update_deployment_status', 'params': ['service', 'deployment', 'deployment_status'], 'collection': False},
+               {'action': 'update_disk', 'params': ['disk'], 'collection': False},
                {'action': 'update_dns_server', 'params': ['service', 'deployment', 'dns', 'ipaddr'], 'collection': False},
                {'action': 'update_hosted_service', 'params': [], 'collection': False},
                {'action': 'update_os_image', 'params': ['image', 'name'], 'collection': False},
                {'action': 'update_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
                {'action': 'update_storage_account', 'params': [], 'collection': False},
                {'action': 'update_vm_image', 'params': [], 'collection': False},
-               {'action': 'upgrade_deployment', 'params': [], 'collection': False},
+               {'action': 'upgrade_deployment', 'params': ['service', 'deployment', 'name', 'package_url', 'package_config'], 'collection': False},
                {'action': 'wait_for_operation_status', 'params': [], 'collection': False},
                {'action': 'walk_upgrade_domain', 'params': [], 'collection': False},
                {'action': 'xml_endpoint_fragment_from_dict', 'params': ['epacls'], 'collection': False}]
@@ -406,7 +421,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
     default_host_caching = 'ReadWrite'
     default_post_capture_action = 'Reprovision'
     default_os_state = 'Specialized'
-    
+    default_start_deployment = False
+    default_ignore_warinings = False
+    default_account_type = 'Standard_GRS'
+    default_key_type = 'Primary'
+    default_mode = 'auto'
+            
     def __init__(self, subscription_id=None, management_certificate=None):
         self.service = None
         self.label = None
@@ -428,6 +448,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
         self.subnet = None
         self.lun = None
         self.location = None
+        self.package_url = None
+        self.package_config = None
         self.subscription_id = subscription_id or self.default_subscription_id
         self.management_certificate = management_certificate or self.default_management_certificate
         if not self.subscription_id or not self.management_certificate:
@@ -1827,8 +1849,65 @@ class AzureCloudClass(BaseCloudHarnessClass):
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
-    def create_deployment(self):
-        pass
+        
+    def create_deployment(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.service = self.get_params(key='service', params=arg, default=None)
+            self.deployment = self.get_params(key='deployment', params=arg, default=None)
+            self.slot = self.get_params(key='service', params=arg, default=None)
+            self.name = self.get_params(key='name', params=arg, default=None)
+            if isinstance(self.name, list): self.name = self.name[0]
+            self.label = self.get_params(key='label', params=arg, default=self.name)
+            self.package_url = self.get_params(key='package_url', params=arg, default=None)
+            self.package_config = self.get_params(key='package_config', params=arg, default=None)
+            self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)            
+            self.extended_properties = self.get_params(key='extended_properties', params=arg,
+                                                       default=self.get_storage_account_properties({'account': self.account,
+                                                                                                    'verbose': False})['extended_properties'])
+            self.start_deployment = self.get_params(key='start_deployment', params=arg, default=self.default_start_deployment)
+            self.ignore_warinings = self.get_params(key='ignore_warinings', params=arg, default=self.default_ignore_warinings)
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+            
+            try:
+                self.package_config = None                                                    
+                with open(self.package_config, 'rb') as cf:
+                    self.configuration = b64encode(cf.read())
+            except IOError:
+                logger('%s: unable to read %s' % (inspect.stack()[0][3], self.package_config))
+                pass
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                try:
+                    d = dict()
+                    result = self.sms.create_deployment(self.service, self.slot, self.name,
+                                                        self.package_url, self.label, self.configuration,
+                                                        start_deployment=self.start_deployment,
+                                                        treat_warnings_as_error=self.ignore_warinings,
+                                                        extended_properties=self.extended_properties)
+                    d['result'] = result.__dict__
+                    if not self.async:
+                        operation = self.sms.get_operation_status(result.request_id)
+                        d['operation'] = operation.__dict__
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return 
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
 
     def create_hosted_service(self, *args):
         try:
@@ -1841,8 +1920,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.description = self.get_params(key='description', params=arg, default=None)
             self.location = self.get_params(key='location', params=arg, default=None)
             self.group = self.get_params(key='group', params=arg, default=None)
-            self.extended_properties = self.get_params(key='description', params=arg, default=self.get_storage_account_properties({'account': None,
-                                                                                                                                   'verbose': False})['extended_properties'])
+            self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
+            self.extended_properties = self.get_params(key='extended_properties', params=arg,
+                                                       default=self.get_storage_account_properties({'account': self.account,
+                                                                                                    'verbose': False})['extended_properties'])
             self.async = self.get_params(key='async', params=arg, default=None)
             self.readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
@@ -1850,6 +1931,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if self.location: self.group = None
             if not self.location and not self.group:
                 logger('%s: must specify either location of affinity group' % inspect.stack()[0][3])
+                sys.exit(1)
 
             if verbose: pprint.pprint(self.__dict__)
 
@@ -1877,12 +1959,91 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
     
-    def create_reserved_ip_address(self):
-        pass
-    
-    def create_storage_account(self):
-        pass
-    
+    def create_reserved_ip_address(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.ipaddr = self.get_params(key='ipaddr', params=arg, default=None)
+            self.label = self.get_params(key='label', params=arg, default=self.ipaddr)
+            self.location = self.get_params(key='location', params=arg, default=None)
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                try:
+                    d = dict()
+                    result = self.sms.create_reserved_ip_address(self.ipaddr, label=self.label, location=self.location)
+                    d['result'] = result.__dict__
+                    if not self.async:
+                        operation = self.sms.get_operation_status(result.request_id)
+                        d['operation'] = operation.__dict__
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return 
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+        
+    def create_storage_account(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.account = self.get_params(key='account', params=arg, default=None)
+            self.account_type = self.get_params(key='account_type', params=arg, default=None)
+            self.label = self.get_params(key='label', params=arg, default=self.account)
+            self.description = self.get_params(key='description', params=arg, default=self.label)
+            self.group = self.get_params(key='group', params=arg, default=None)
+            self.location = self.get_params(key='location', params=arg, default=None)
+            self.extended_properties = self.get_params(key='extended_properties', params=arg, default=None)
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if self.location: self.group = None
+            if not self.location and not self.group:
+                logger('%s: must specify either location of affinity group' % inspect.stack()[0][3])
+                sys.exit(1)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                try:
+                    d = dict()
+                    result = self.sms.create_storage_account(self.account, self.description, self.label,
+                                                             affinity_group=self.group, location=self.location,
+                                                             geo_replication_enabled=None,
+                                                             extended_properties=self.extended_properties,
+                                                             account_type=self.account_type)
+                    d['result'] = result.__dict__
+                    if not self.async:
+                        operation = self.sms.get_operation_status(result.request_id)
+                        d['operation'] = operation.__dict__
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return 
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+        
     def create_vm_image(self):
         pass
 
@@ -2146,11 +2307,75 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
     
-    def delete_reserved_ip_address(self):
-        pass
+    def delete_reserved_ip_address(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.ipaddr = self.get_params(key='ipaddr', params=arg, default=None)
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                try:
+                    result = self.sms.delete_reserved_ip_address(self.ipaddr)
+                    d = dict()
+                    operation = self.sms.get_operation_status(result.request_id)
+                    d['result'] = result.__dict__
+                    d['operation'] = operation.__dict__
+                    if not self.async:
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return d
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
     
-    def delete_role_instances(self):
-        pass
+    def delete_role_instances(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.service = self.get_params(key='service', params=arg, default=None)
+            self.deployment = self.get_params(key='deployment', params=arg, default=None)
+            self.name = self.get_params(key='name', params=arg, default=None)            
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                try:
+                    result = self.sms.delete_role_instances(self.service, self.deployment, self.name)
+                    d = dict()
+                    operation = self.sms.get_operation_status(result.request_id)
+                    d['result'] = result.__dict__
+                    d['operation'] = operation.__dict__
+                    if not self.async:
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return d
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
     
     def delete_service_certificate(self, *args):
         try:
@@ -2185,14 +2410,113 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
     
-    def delete_storage_account(self):
-        pass
+    def delete_storage_account(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.account = self.get_params(key='account', params=arg, default=None)
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+            
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                result = self.sms.delete_storage_account(self.account)        
+                if result is not None:
+                    d = dict()
+                    operation = self.sms.get_operation_status(result.request_id)
+                    d['result'] = result.__dict__
+                    d['operation'] = operation.__dict__
+                    if not self.async:
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return d
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
     
-    def delete_vm_image(self):
-        pass
+    def delete_vm_image(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.name = self.get_params(key='name', params=arg, default=None)
+            if isinstance(self.name, list): self.name = self.name[0]
+            self.delete_vhds = self.get_params(key='delete_vhds', params=arg, default=None)
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                try:
+                    result = self.sms.delete_vm_image(self.name, delete_vhd=self.delete_vhds)
+                    d = dict()
+                    operation = self.sms.get_operation_status(result.request_id)
+                    d['result'] = result.__dict__
+                    d['operation'] = operation.__dict__
+                    if not self.async:
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return d
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
     
-    def delete_data_disk(self):
-        pass
+    def delete_data_disk(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+            
+            self.service = self.get_params(key='service', params=arg, default=None)
+            self.deployment = self.get_params(key='deployment', params=arg, default=None)
+            self.name = self.get_params(key='name', params=arg, default=None)
+            if isinstance(self.name, list): self.name = self.name[0]
+            self.lun = self.get_params(key='lun', params=arg, default=None)
+            self.delete_vhds = self.get_params(key='delete_vhds', params=arg, default=None)
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+
+                @retry(WindowsAzureConflictError, tries=5, delay=15, backoff=2, cdata='method=%s()' % inspect.stack()[0][3])
+                def delete_data_disk_retry():
+                    result = self.sms.delete_data_disk(self.service, self.deployment, self.name,
+                                                       self.lun, delete_vhd=False)
+                    d = dict()
+                    operation = self.sms.get_operation_status(result.request_id)
+                    d['result'] = result.__dict__
+                    d['operation'] = operation.__dict__
+                    if not self.async:
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return d
+                
+                return delete_data_disk_retry()
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
     
     def delete_deployment(self, *args):
         try:
@@ -2457,6 +2781,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if not arg: return False
             
             self.name = self.get_params(key='name', params=arg, default=None)
+            if isinstance(self.name, list): self.name = self.name[0]
             verbose = self.get_params(key='verbose', params=arg, default=None)
             
             if verbose: pprint.pprint(self.__dict__)
@@ -2471,8 +2796,26 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False  
 
-    def get_reserved_ip_address(self):
-        pass
+    def get_reserved_ip_address(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+            
+            self.ipaddr = self.get_params(key='ipaddr', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+            
+            if verbose: pprint.pprint(self.__dict__)
+            
+            result = self.sms.get_reserved_ip_address(self.ipaddr)
+            
+            if result:
+                return self.dict_from_response_obj(result)
+            else:
+                return None
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
 
     def get_service_certificate(self, *args):
         try:
@@ -2518,8 +2861,25 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False  
 
-    def get_subscription(self):
-        pass
+    def get_subscription(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+      
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+            
+            if verbose: pprint.pprint(self.__dict__)
+            
+            result = self.sms.get_subscription()
+            
+            if result:
+                return self.dict_from_response_obj(result)
+            else:
+                return None
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False  
 
     def get_disk_by_role_name(self, *args):
         try:
@@ -2734,17 +3094,139 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
 
-    def rebuild_role_instance(self):
-        pass
+    def rebuild_role_instance(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.service = self.get_params(key='service', params=arg, default=None)
+            self.deployment = self.get_params(key='deployment', params=arg, default=None)
+            self.name = self.get_params(key='name', params=arg, default=None)
+            if isinstance(self.name, list): self.name = self.name[0]
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                try:
+                    result = self.sms.rebuild_role_instance(self.service, self.deployment, self.name)
+                    d = dict()
+                    operation = self.sms.get_operation_status(result.request_id)
+                    d['result'] = result.__dict__
+                    d['operation'] = operation.__dict__
+                    if not self.async:
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return d
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+        
+    def regenerate_storage_account_keys(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.account = self.get_params(key='account', params=arg, default=None)
+            self.key_type = self.get_params(key='key_type', params=arg, default=self.default_key_type)
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                storage = self.sms.regenerate_storage_account_keys(self.account, self.key_type)
+                return self.dict_from_response_obj(storage)
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
     
-    def regenerate_storage_account_keys(self):
-        pass
+    def reimage_role_instance(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.service = self.get_params(key='service', params=arg, default=None)
+            self.deployment = self.get_params(key='deployment', params=arg, default=None)
+            self.name = self.get_params(key='name', params=arg, default=None)
+            if isinstance(self.name, list): self.name = self.name[0]
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                try:
+                    result = self.sms.reimage_role_instance(self.service, self.deployment, self.name)
+                    d = dict()
+                    operation = self.sms.get_operation_status(result.request_id)
+                    d['result'] = result.__dict__
+                    d['operation'] = operation.__dict__
+                    if not self.async:
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return d
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
     
-    def reimage_role_instance(self):
-        pass
-    
-    def rollback_update_or_upgrade(self):
-        pass
+    def rollback_update_or_upgrade(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.service = self.get_params(key='service', params=arg, default=None)
+            self.deployment = self.get_params(key='deployment', params=arg, default=None)
+            self.mode = self.get_params(key='mode', params=arg, default=self.default_mode)
+            self.force = self.get_params(key='force', params=arg, default=None)
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                try:
+                    result = self.sms.rollback_update_or_upgrade(self.service, self.deployment, self.mode, self.force)
+                    d = dict()
+                    operation = self.sms.get_operation_status(result.request_id)
+                    d['result'] = result.__dict__
+                    d['operation'] = operation.__dict__
+                    if not self.async:
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return d
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
     
     def reboot_role_instance(self, *args):
         try:
@@ -2983,8 +3465,41 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
 
-    def swap_deployment(self):
-        pass
+    def swap_deployment(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.service = self.get_params(key='service', params=arg, default=None)
+            self.deployment = self.get_params(key='deployment', params=arg, default=None)
+            self.production_deployment = self.get_params(key='production_deployment', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            self.async = self.get_params(key='async', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+            
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                result = self.sms.swap_deployment(self.service, self.production_deployment, self.deployment) 
+                if result is not None:
+                    if not self.readonly:
+                        d = dict()
+                        operation = self.sms.get_operation_status(result.request_id)
+                        d['result'] = result.__dict__
+                        d['operation'] = operation.__dict__
+                        if not self.async:
+                            d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                            return d
+                        else:
+                            return d
+                    else:
+                        logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+                else:
+                    return False
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
 
     def xml_endpoint_fragment_from_dict(self, **kwargs):
         try:
@@ -3137,168 +3652,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
 
-    def timeout(self):
-        return self.sms.timeout
-    
-    def upgrade_deployment(self):
-        pass
-    
-    def change_deployment_configuration(self):
-        pass
-
-    def update_affinity_group(self, *args):
-        try:
-            if not args: return False
-            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
-            if not arg: return False
-
-            self.name = self.get_params(key='name', params=arg, default=None)
-            if isinstance(self.name, list): self.name = self.name[0]
-            self.label = self.get_params(key='label', params=arg, default=self.name)
-            self.description = self.get_params(key='description', params=arg, default=None)       
-            self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
-            verbose = self.get_params(key='verbose', params=arg, default=None)
-
-            if verbose: pprint.pprint(self.__dict__)
-
-            if not self.readonly:
-                return self.sms.update_affinity_group(self.name, self.label, self.description)
-            else:
-                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
-        except Exception as e:
-            logger(message=traceback.print_exc())
-            return False
-    
-    def update_data_disk(self):
-        pass
-
-    def update_deployment_status(self):
-        pass
-
-    def update_disk(self):
-        pass
-
-    def update_dns_server(self, *args):
-        try:
-            if not args: return False
-            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
-            if not arg: return False
-
-            self.service = self.get_params(key='service', params=arg, default=None)
-            self.deployment = self.get_params(key='deployment', params=arg, default=None)
-            self.dns = self.get_params(key='dns', params=arg, default=None)
-            self.ipaddr = self.get_params(key='ipaddr', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
-            verbose = self.get_params(key='verbose', params=arg, default=None)
-            self.async = self.get_params(key='async', params=arg, default=None)
-
-            if verbose: pprint.pprint(self.__dict__)
-            
-            result = self.sms.update_dns_server(self.service, self.deployment, self.dns, self.ipaddr)        
-            if result is not None:
-                if not self.readonly:
-                    d = dict()
-                    operation = self.sms.get_operation_status(result.request_id)
-                    d['result'] = result.__dict__
-                    d['operation'] = operation.__dict__
-                    if not self.async:
-                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
-                        return d
-                    else:
-                        return d
-                else:
-                    logger('%s: limited to read-only operations' % inspect.stack()[0][3])
-            else:
-                return False
-        except Exception as e:
-            logger(message=traceback.print_exc())
-            return False
-
-    def update_hosted_service(self, *args):
-        try:
-            if not args: return False
-            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
-            if not arg: return False
-
-            self.service = self.get_params(key='service', params=arg, default=None)
-            self.label = self.get_params(key='label', params=arg, default=None)
-            self.description = self.get_params(key='description', params=arg, default=None)
-            self.extended_properties = self.get_params(key='description', params=arg, default=self.get_storage_account_properties({'account': None,
-                                                                                                                                   'verbose': False})['extended_properties'])
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
-            verbose = self.get_params(key='verbose', params=arg, default=None)
-            self.async = self.get_params(key='async', params=arg, default=None)
-
-            if verbose: pprint.pprint(self.__dict__)
-            
-            result = self.sms.update_hosted_service(self.service, label=self.label,
-                                                    description=self.description,
-                                                    extended_properties=self.extended_properties)        
-            if result is not None:
-                if not self.readonly:
-                    d = dict()
-                    operation = self.sms.get_operation_status(result.request_id)
-                    d['result'] = result.__dict__
-                    d['operation'] = operation.__dict__
-                    if not self.async:
-                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
-                        return d
-                    else:
-                        return d
-                else:
-                    logger('%s: limited to read-only operations' % inspect.stack()[0][3])
-            else:
-                return False
-        except Exception as e:
-            logger(message=traceback.print_exc())
-            return False
-
-    def update_os_image(self, *args):
-        try:
-            if not args: return False
-            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
-            if not arg: return False
-
-            self.name = self.get_params(key='name', params=arg, default=None)
-            if isinstance(self.name, list): self.name = self.name[0]
-            self.label = self.get_params(key='label', params=arg, default=self.name)
-            self.image = self.get_params(key='image', params=arg, default=None)
-            self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
-            self.container = self.get_params(key='container', params=arg, default='images')       
-            self.os = self.get_params(key='os', params=arg, default=None)
-
-            self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
-            verbose = self.get_params(key='verbose', params=arg, default=None)
-
-            self.media_link = 'https://%s.blob.core.windows.net/%s/%s' % (self.account,
-                                                                          self.container,
-                                                                          self.image)
-            if verbose: pprint.pprint(self.__dict__)
-
-            if not self.readonly:
-                try:
-                    result = self.sms.update_os_image(self.name, self.label, self.media_link,
-                                                      self.image, self.os)
-                    d = dict()
-                    operation = self.sms.get_operation_status(result.request_id)
-                    d['result'] = result.__dict__
-                    d['operation'] = operation.__dict__
-                    if not self.async:
-                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
-                        return d
-                    else:
-                        return d
-                except (WindowsAzureConflictError) as e:
-                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
-                    return False
-            else:
-                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
-        except Exception as e:
-            logger(message=traceback.print_exc())
-            return False
-
     def get_os_for_role(self, **kwargs):
         try:
             if not kwargs: return False
@@ -3387,6 +3740,370 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 return default
         except KeyError:
             return None
+
+    def timeout(self):
+        return self.sms.timeout
+    
+    def upgrade_deployment(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.service = self.get_params(key='service', params=arg, default=None)
+            self.deployment = self.get_params(key='deployment', params=arg, default=None)
+            self.name = self.get_params(key='name', params=arg, default=None)
+            if isinstance(self.name, list): self.name = self.name[0]
+            self.label = self.get_params(key='name', params=arg, default=self.name)
+            self.package_url = self.get_params(key='package_url', params=arg, default=None)
+            self.package_config = self.get_params(key='package_config', params=arg, default=None)
+            self.mode = self.get_params(key='mode', params=arg, default=self.default_mode)
+            self.force = self.get_params(key='force', params=arg, default=None)
+            self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)            
+            self.extended_properties = self.get_params(key='extended_properties', params=arg,
+                                                       default=self.get_storage_account_properties({'account': self.account,
+                                                                                                    'verbose': False})['extended_properties'])
+            self.start_deployment = self.get_params(key='start_deployment', params=arg, default=self.default_start_deployment)
+            self.ignore_warinings = self.get_params(key='ignore_warinings', params=arg, default=self.default_ignore_warinings)
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+            
+            try:
+                self.package_config = None                                                    
+                with open(self.package_config, 'rb') as cf:
+                    self.configuration = b64encode(cf.read())
+            except IOError:
+                logger('%s: unable to read %s' % (inspect.stack()[0][3], self.package_config))
+                pass
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                try:
+                    d = dict()
+                    result = self.sms.upgrade_deployment(self.service, self.deployment, self.mode,
+                                                         self.package_url, self.configuration,
+                                                         self.label, self.force, 
+                                                         role_to_upgrade=self.name,
+                                                         extended_properties=self.extended_properties)
+                    d['result'] = result.__dict__
+                    if not self.async:
+                        operation = self.sms.get_operation_status(result.request_id)
+                        d['operation'] = operation.__dict__
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return 
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+    
+    def change_deployment_configuration(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.service = self.get_params(key='service', params=arg, default=None)
+            self.deployment = self.get_params(key='deployment', params=arg, default=None)
+            self.package_config = self.get_params(key='package_config', params=arg, default=None)
+            self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)            
+            self.mode = self.get_params(key='mode', params=arg, default=self.default_mode)            
+            self.extended_properties = self.get_params(key='description', params=arg,
+                                                       default=self.get_storage_account_properties({'account': self.account,
+                                                                                                    'verbose': False})['extended_properties'])
+            self.ignore_warinings = self.get_params(key='ignore_warinings', params=arg, default=self.default_ignore_warinings)
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+            
+            try:
+                self.package_config = None                                                    
+                with open(self.package_config, 'rb') as cf:
+                    self.configuration = b64encode(cf.read())
+            except IOError:
+                logger('%s: unable to read %s' % (inspect.stack()[0][3], self.package_config))
+                pass
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                try:
+                    d = dict()
+                    result = self.sms.change_deployment_configuration(self.service, self.deployment, self.configuration,
+                                                                      treat_warnings_as_error=self.ignore_warinings,
+                                                                      mode=self.mode,
+                                                                      extended_properties=self.extended_properties)
+                    d['result'] = result.__dict__
+                    if not self.async:
+                        operation = self.sms.get_operation_status(result.request_id)
+                        d['operation'] = operation.__dict__
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return 
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
+    def update_affinity_group(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.name = self.get_params(key='name', params=arg, default=None)
+            if isinstance(self.name, list): self.name = self.name[0]
+            self.label = self.get_params(key='label', params=arg, default=self.name)
+            self.description = self.get_params(key='description', params=arg, default=None)       
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                return self.sms.update_affinity_group(self.name, self.label, self.description)
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+    
+    def update_data_disk(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.service = self.get_params(key='service', params=arg, default=None)
+            self.deployment = self.get_params(key='deployment', params=arg, default=None)
+            self.name = self.get_params(key='name', params=arg, default=None)
+            if isinstance(self.name, list): self.name = self.name[0]
+            self.disk = self.get_params(key='disk', params=arg, default=None)
+            self.label = self.get_params(key='label', params=arg, default=self.disk)
+            self.lun = self.get_params(key='lun', params=arg, default=None)
+            self.media_link = self.get_params(key='media_link', params=arg, default=None)
+            self.host_caching = self.get_params(key='host_caching', params=arg, default=self.default_host_caching)
+            self.disk_size = self.get_params(key='disk_size', params=arg, default=self.default_disk_size)            
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            self.current_lun = len(self.get_disk_by_role_name({'service': self.service,
+                                                               'deployment': self.deployment,
+                                                               'name': self.name,
+                                                               'verbose': False})) - 1
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                try:
+                    result = self.sms.update_data_disk(self.service, self.deployment, self.name, self.current_lun,
+                                                       host_caching=self.host_caching,
+                                                       media_link=self.media_link,
+                                                       updated_lun=self.lun,
+                                                       disk_label=self.label,
+                                                       disk_name=self.disk,
+                                                       logical_disk_size_in_gb=self.disk_size)
+                    d = dict()
+                    operation = self.sms.get_operation_status(result.request_id)
+                    d['result'] = result.__dict__
+                    d['operation'] = operation.__dict__
+                    if not self.async:
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return d
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
+    def update_deployment_status(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.service = self.get_params(key='service', params=arg, default=None)
+            self.deployment = self.get_params(key='deployment', params=arg, default=self.name)
+            self.deployment_status = self.get_params(key='deployment_status', params=arg, default=None)       
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                return self.sms.update_deployment_status(self.service, self.deployment, self.deployment_status)
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
+    def update_disk(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.disk = self.get_params(key='disk', params=arg, default=None)
+            self.label = self.get_params(key='label', params=arg, default=self.disk)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                try:
+                    return self.sms.update_disk(self.disk, has_operating_system=None, label=self.label,
+                                                media_link=None, name=None, os=None)
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
+    def update_dns_server(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.service = self.get_params(key='service', params=arg, default=None)
+            self.deployment = self.get_params(key='deployment', params=arg, default=None)
+            self.dns = self.get_params(key='dns', params=arg, default=None)
+            self.ipaddr = self.get_params(key='ipaddr', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+            self.async = self.get_params(key='async', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+            
+            result = self.sms.update_dns_server(self.service, self.deployment, self.dns, self.ipaddr)        
+            if result is not None:
+                if not self.readonly:
+                    d = dict()
+                    operation = self.sms.get_operation_status(result.request_id)
+                    d['result'] = result.__dict__
+                    d['operation'] = operation.__dict__
+                    if not self.async:
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return d
+                else:
+                    logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+            else:
+                return False
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
+    def update_hosted_service(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.service = self.get_params(key='service', params=arg, default=None)
+            self.label = self.get_params(key='label', params=arg, default=None)
+            self.description = self.get_params(key='description', params=arg, default=None)
+            self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
+            self.extended_properties = self.get_params(key='description', params=arg,
+                                                       default=self.get_storage_account_properties({'account': self.account,
+                                                                                                    'verbose': False})['extended_properties'])
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+            self.async = self.get_params(key='async', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+            
+            result = self.sms.update_hosted_service(self.service, label=self.label,
+                                                    description=self.description,
+                                                    extended_properties=self.extended_properties)        
+            if result is not None:
+                if not self.readonly:
+                    d = dict()
+                    operation = self.sms.get_operation_status(result.request_id)
+                    d['result'] = result.__dict__
+                    d['operation'] = operation.__dict__
+                    if not self.async:
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return d
+                else:
+                    logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+            else:
+                return False
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
+    def update_os_image(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.name = self.get_params(key='name', params=arg, default=None)
+            if isinstance(self.name, list): self.name = self.name[0]
+            self.label = self.get_params(key='label', params=arg, default=self.name)
+            self.image = self.get_params(key='image', params=arg, default=None)
+            self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
+            self.container = self.get_params(key='container', params=arg, default='images')       
+            self.os = self.get_params(key='os', params=arg, default=None)
+
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            self.media_link = 'https://%s.blob.core.windows.net/%s/%s' % (self.account,
+                                                                          self.container,
+                                                                          self.image)
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                try:
+                    result = self.sms.update_os_image(self.name, self.label, self.media_link,
+                                                      self.image, self.os)
+                    d = dict()
+                    operation = self.sms.get_operation_status(result.request_id)
+                    d['result'] = result.__dict__
+                    d['operation'] = operation.__dict__
+                    if not self.async:
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return d
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
         
     def update_role(self, *args):
         try:
@@ -3460,8 +4177,33 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
         
-    def update_storage_account(self):
-        pass
+    def update_storage_account(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.account = self.get_params(key='account', params=arg, default=None)
+            self.account_type = self.get_params(key='account_type', params=arg, default=None)
+            self.label = self.get_params(key='label', params=arg, default=None)
+            self.description = self.get_params(key='description', params=arg, default=None)
+            self.extended_properties = self.get_params(key='extended_properties', params=arg, default=None)
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:                
+                return self.sms.update_storage_account(self.account, self.description, self.label,
+                                                       geo_replication_enabled=None,
+                                                       extended_properties=self.extended_properties,
+                                                       account_type=self.account_type)
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
 
     def update_vm_image(self):
         pass
