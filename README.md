@@ -146,7 +146,7 @@ Add data disk to virtual machine:
     --name my-second-ubuntu-virtual-machine \
     --account my-storage-account
 
-Create a `Windows` virtual machine (role) with random alpha-numeric password and wait for provisioning completion:
+Create a Windows virtual machine (role) with random alpha-numeric password and wait for provisioning completion:
 
     ./cloud-harness.py azure --action add_role \
     --service my-hosted-service \
@@ -166,7 +166,7 @@ Create a `Windows` virtual machine (role) with random alpha-numeric password and
     --deployment my-virtual-machine-deployment \
     --name my-windows-virtual-machine
 
-Reset the Administrator password on the `Windows` VM using `VMAccess` extension:
+Reset the Administrator password on the Windows VM using `VMAccess` extension:
 
     ./cloud-harness.py azure --action add_resource_extension \
     --service my-hosted-service \
