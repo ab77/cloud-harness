@@ -389,6 +389,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'update_vm_image', 'params': ['name'], 'collection': False},
                {'action': 'upgrade_deployment', 'params': ['service', 'deployment', 'name', 'package_url', 'package_config'], 'collection': False},
                {'action': 'wait_for_operation_status', 'params': [], 'collection': False},
+               {'action': 'wait_for_vm_provisioning_completion', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'walk_upgrade_domain', 'params': ['service', 'deployment', 'upgrade_domain'], 'collection': False},
                {'action': 'xml_endpoint_fragment_from_dict', 'params': ['epacls'], 'collection': False}]
 
@@ -4428,6 +4429,51 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             if not self.readonly:
                 return self.sms.walk_upgrade_domain(self.service, self.deployment, self.upgrade_domain)
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
+    def wait_for_vm_provisioning_completion(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+            
+            self.service = self.get_params(key='service', params=arg, default=None)
+            self.deployment = self.get_params(key='deployment', params=arg, default=None)
+            self.name = self.get_params(key='name', params=arg, default=None)
+            if isinstance(self.name, list): self.name = self.name[0]
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+
+                @retry(AssertionError, tries=5, delay=15, backoff=2, cdata='method=%s()' % inspect.stack()[0][3])
+                def wait_for_vm_provisioning_completion_retry():                    
+                    deployment = self.get_deployment_by_name({'service': self.service,
+                                                              'deployment': self.deployment,
+                                                              'verbose': False})
+                    if 'role_instance_list' in deployment:
+                        result = True
+                        for role_instance in deployment['role_instance_list']:
+                            if role_instance['role_name'] == self.name and role_instance['instance_status'] != 'ReadyRole':
+                                logger('%s: role_name %s (%s) is currently %s' % (inspect.stack()[0][3],
+                                                                                  role_instance['role_name'],
+                                                                                  role_instance['host_name'],
+                                                                                  role_instance['instance_status']))
+                                result = False
+                            elif role_instance['role_name'] == self.name and role_instance['instance_status'] == 'ReadyRole':
+                                logger('%s: role_name %s (%s) is currently %s' % (inspect.stack()[0][3],
+                                                                                  role_instance['role_name'],
+                                                                                  role_instance['host_name'],
+                                                                                  role_instance['instance_status']))
+                        assert result
+                        
+                return wait_for_vm_provisioning_completion_retry()
             else:
                 logger('%s: limited to read-only operations' % inspect.stack()[0][3])
         except Exception as e:
