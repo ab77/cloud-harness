@@ -356,7 +356,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'get_affinity_group_properties', 'params': ['name'], 'collection': False},
                {'action': 'get_hosted_service_properties', 'params': ['service'], 'collection': False},
                {'action': 'get_disk_by_role_name', 'params': ['service', 'deployment', 'name'], 'collection': False},
-               {'action': 'get_os_for_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
                {'action': 'get_objs_for_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
                {'action': 'get_pub_key_and_thumbprint_from_x509_cert', 'params': ['certificate', 'algorithm'], 'collection': False},
                {'action': 'generate_signed_blob_url', 'params': ['account', 'container', 'script'], 'collection': False},
@@ -457,11 +456,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.name = self.get_params(key='name', params=arg, default=None)
             if isinstance(self.name, list): self.name = self.name[0]
-
-            self.os = self.get_params(key='os', params=arg, default=self.get_os_for_role(service=self.service,
-                                                                                         deployment=self.deployment,
-                                                                                         name=self.name,
-                                                                                         verbose=False))       
+            self.os = self.get_params(key='os', params=arg, default=self.get_role({'service': self.service,
+                                                                                   'deployment': self.deployment,
+                                                                                   'name': self.name,
+                                                                                   'verbose': False}))       
             arg['os'] = self.os
             if arg['extension'] == 'ChefClient':                    
                 arg['rextrs'] = self.build_chefclient_resource_extension(arg)                
@@ -1694,12 +1692,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.blob = self.get_params(key='blob', params=arg, default=None)
             if isinstance(self.blob, list): self.blob = self.blob[0]
             self.label = self.get_params(key='label', params=arg, default=self.blob)
-            
-            self.os = self.get_params(key='os', params=arg, default=self.get_os_for_role(service=self.service,
-                                                                                         deployment=self.deployment,
-                                                                                         name=self.name,
-                                                                                         verbose=False))
-            
+            self.os = self.get_params(key='os', params=arg, default=self.get_role({'service': self.service,
+                                                                                   'deployment': self.deployment,
+                                                                                   'name': self.name,
+                                                                                   'verbose': False}))       
             self.password = self.get_params(key='password', params=arg, default=''.join(SystemRandom().choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(11)))
             self.username = self.get_params(key='username', params=arg, default=self.default_user_name)        
             self.certificate = self.get_params(key='certificate', params=arg, default=self.default_certificate)
@@ -3653,11 +3649,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if isinstance(self.name, list): self.name = self.name[0]
             self.subnet = self.get_params(key='subnet', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
-            
-            self.os = self.get_params(key='os', params=arg, default=self.get_os_for_role(name=self.name,
-                                                                                              service=self.service,
-                                                                                              deployment=self.deployment,
-                                                                                              verbose=False))
+            self.os = self.get_params(key='os', params=arg, default=self.get_role({'service': self.service,
+                                                                                   'deployment': self.deployment,
+                                                                                   'name': self.name,
+                                                                                   'verbose': False}))       
             if not self.os: return False           
 
             self.epacls = self.get_params(key='epacls', params=arg, default=self.build_default_epacl_dict_for_os(os=self.os))
@@ -3735,29 +3730,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
             d['operation'] = operation.__dict__
             d['operation_result'] = self.wait_for_operation_status(request_id=request_id)
             return d
-        except Exception as e:
-            logger(message=traceback.print_exc())
-            return False
-
-    def get_os_for_role(self, **kwargs):
-        try:
-            if not kwargs: return False
-            arg = self.verify_params(method=inspect.stack()[0][3], params=kwargs)
-            if not arg: return False
-            
-            self.service = self.get_params(key='service', params=arg, default=None)
-            self.deployment = self.get_params(key='deployment', params=arg, default=None)
-            self.name = self.get_params(key='name', params=arg, default=None)            
-            if isinstance(self.name, list): self.name = self.name[0]
-            verbose = self.get_params(key='verbose', params=arg, default=None)
-
-            if verbose: pprint.pprint(self.__dict__)
-
-            role = self.get_role({'service': self.service, 'deployment': self.deployment, 'name': self.name, 'verbose': False})
-            if role:
-                return role['os_virtual_hard_disk']['os']
-            else:
-                return None
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -4461,7 +4433,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
         return self.sms.x_ms_version
 
 if __name__ == '__main__':
-    if BaseCloudHarnessClass.log: logging.basicConfig(filename=BaseCloudHarnessClass.log_file, format='%(asctime)s %(message)s', level=logging.INFO)
+    if BaseCloudHarnessClass.log: logging.basicConfig(filename=BaseCloudHarnessClass.log_file,
+                                                      format='%(asctime)s %(message)s',
+                                                      level=logging.INFO)
     arg = args()    
     if arg.provider in ['azure']:
         if arg.action == 'get_certificate_from_publish_settings':
