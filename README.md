@@ -29,7 +29,7 @@ Create a new hosted service:
     --label 'my hosted service label'
     --verbose
 
-Add X.509 certificate containing RSA public key for SSH authentication to the hosted service:
+Add x.509 certificate containing RSA public key for SSH authentication to the hosted service:
 
     ./cloud-harness.py azure --action add_service_certificate \
     --service my-hosted-service \
@@ -140,7 +140,7 @@ Add data disk to virtual machine:
 To use `Fiddler2` to capture HTTPS traffic to the API
 * export your Azure Management Certificate as base64 encoded  x.509 as ClientCertificate.cer
 * place it into your `Fiddler2` directory (e.g. `C:\Users\<user>\Documents\Fiddler2`)
-* set `proxy = True` in `cloud-harness.py` and re-launch `Fiddler2` [n1]
+* set `proxy = True` in `cloud-harness.conf` and re-launch `Fiddler2` [n1]
 
 ### Further Work
 Lots, including:
