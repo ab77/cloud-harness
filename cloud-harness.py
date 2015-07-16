@@ -135,7 +135,7 @@ def args():
     azure.add_argument('--group', type=str, required=False, help='group name')
     azure.add_argument('--dns', type=str, required=False, help=' dns server name')
     azure.add_argument('--ipaddr', type=str, required=False, help='reserved IP address name or DNS server IP address')
-    azure.add_argument('--image', type=str, required=False, help='disk image blob name')
+    azure.add_argument('--blob', type=str, nargs='+', required=False, help='disk image blob name(s)')
     azure.add_argument('--family', type=str, required=False, help='OS image family')
     azure.add_argument('--disk', type=str, required=False, help='disk name')
     azure.add_argument('--delete_vhds', action='store_true', required=False, help='delete VHDs')
@@ -150,6 +150,7 @@ def args():
     azure.add_argument('--wait', type=int, required=False, default=AzureCloudClass.default_wait, help='operation wait time (default %i)' % AzureCloudClass.default_wait)
     azure.add_argument('--timeout', type=int, required=False, default=AzureCloudClass.default_timeout, help='operation timeout (default %i)' % AzureCloudClass.default_timeout)
     azure.add_argument('--deployment', type=str, required=False, help='(source) deployment name')
+    azure.add_argument('--upgrade_domain', type=int, required=False, help='upgrade_domain')    
     azure.add_argument('--production_deployment', type=str, required=False, help='production deployment name')
     azure.add_argument('--package_url', type=str, required=False, help='service package URL')
     azure.add_argument('--package_config', type=str, required=False, help='service package configuration file')
@@ -190,6 +191,12 @@ def args():
     azure.add_argument('--patching_duration', type=str, required=False, default=AzureCloudClass.default_patching_duration, help='OSPatching patching duration (default: %s)' % AzureCloudClass.default_patching_duration)
     azure.add_argument('--patching_local', action='store_true', required=False, help='OSPatching patching local')
     azure.add_argument('--patching_oneoff', action='store_true', required=False, help='OSPatching patching one-off')
+    azure.add_argument('--eula_uri', type=str, required=False, help='VM image EULA URI')
+    azure.add_argument('--privacy_uri', type=str, required=False, help='VM image privacy URI')
+    azure.add_argument('--icon_uri', type=str, required=False, help='VM image icon URI')
+    azure.add_argument('--small_icon_uri', type=str, required=False, help='VM image small icon URI')
+    azure.add_argument('--show_in_gui', action='store_true', required=False, help='show VM image in GUI')
+
     args = parser.parse_args()
     logger(message=str(args))
     return args
@@ -290,12 +297,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'list_virtual_network_sites', 'params': ['action'], 'collection': True},
                {'action': 'list_vm_images', 'params': [], 'collection': True},
                {'action': 'add_resource_extension', 'params': ['service', 'deployment', 'name', 'extension'], 'collection': False},
-               {'action': 'add_role', 'params': ['deployment', 'service', 'os', 'name', 'image', 'subnet', 'account'], 'collection': False},
+               {'action': 'add_role', 'params': ['deployment', 'service', 'os', 'name', 'blob', 'subnet', 'account'], 'collection': False},
                {'action': 'add_data_disk', 'params': ['service', 'deployment', 'name'], 'collection': False},
-               {'action': 'add_disk', 'params': ['name', 'os', 'image'], 'collection': False},
+               {'action': 'add_disk', 'params': ['name', 'os', 'blob'], 'collection': False},
                {'action': 'add_dns_server', 'params': ['service', 'deployment', 'dns', 'ipaddr'], 'collection': False},
                {'action': 'add_management_certificate', 'params': ['certificate'], 'collection': False},
-               {'action': 'add_os_image', 'params': ['name', 'image', 'os'], 'collection': False},
+               {'action': 'add_os_image', 'params': ['name', 'blob', 'os'], 'collection': False},
                {'action': 'add_service_certificate', 'params': ['service', 'certificate'], 'collection': False},
                {'action': 'build_epacls_dict_from_xml', 'params': ['deployment', 'service', 'name'], 'collection': False},
                {'action': 'build_chefclient_resource_extension', 'params': ['os'], 'collection': False},
@@ -308,18 +315,19 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'check_storage_account_name_availability', 'params': ['account'], 'collection': False},
                {'action': 'create_affinity_group', 'params': ['name', 'location'], 'collection': False},
                {'action': 'create_hosted_service', 'params': ['service', 'label'], 'collection': False},
-               {'action': 'create_virtual_machine_deployment', 'params': ['deployment', 'service', 'os', 'name', 'image', 'subnet', 'account', 'network'], 'collection': False},
+               {'action': 'create_virtual_machine_deployment', 'params': ['deployment', 'service', 'os', 'name', 'blob', 'subnet', 'account', 'network'], 'collection': False},
                {'action': 'change_deployment_configuration', 'params': ['service', 'deployment', 'package_config'], 'collection': False},
                {'action': 'create_storage_account', 'params': ['account'], 'collection': False},
-               {'action': 'capture_role', 'params': ['service', 'deployment', 'name', 'image'], 'collection': False},
-               {'action': 'capture_vm_image', 'params': ['service', 'deployment', 'name', 'image'], 'collection': False},
+               {'action': 'capture_role', 'params': ['service', 'deployment', 'name', 'blob'], 'collection': False},
+               {'action': 'capture_vm_image', 'params': ['service', 'deployment', 'name', 'blob'], 'collection': False},
                {'action': 'create_deployment', 'params': ['service', 'deployment', 'name', 'package_url', 'package_config'], 'collection': False},
                {'action': 'create_reserved_ip_address', 'params': ['ipaddr', 'location'], 'collection': False},
+               {'action': 'create_vm_image', 'params': ['blob', 'os'], 'collection': False},
                {'action': 'delete_affinity_group', 'params': ['name'], 'collection': False},
                {'action': 'delete_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
                {'action': 'delete_os_image', 'params': ['name'], 'collection': False},
                {'action': 'delete_disk', 'params': ['disk'], 'collection': False},
-               {'action': 'delete_disk_blob', 'params': ['image'], 'collection': False},
+               {'action': 'delete_disk_blob', 'params': ['blob'], 'collection': False},
                {'action': 'delete_deployment', 'params': ['service', 'deployment'], 'collection': False},
                {'action': 'delete_dns_server', 'params': ['service', 'deployment', 'dns'], 'collection': False},
                {'action': 'delete_management_certificate', 'params': ['thumbprint'], 'collection': False},
@@ -329,6 +337,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'delete_storage_account', 'params': ['account'], 'collection': False},
                {'action': 'delete_role_instances', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'delete_data_disk', 'params': ['service', 'deployment', 'name', 'lun'], 'collection': False},
+               {'action': 'delete_vm_image', 'params': ['name'], 'collection': False},
                {'action': 'get_certificate_from_publish_settings', 'params': ['publish_settings', 'certificate'], 'collection': False},
                {'action': 'get_storage_account_properties', 'params': [], 'collection': False},
                {'action': 'get_deployment_by_slot', 'params': ['service'], 'collection': False},
@@ -356,7 +365,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'perform_put', 'params': ['path', 'body'], 'collection': False},
                {'action': 'perform_delete', 'params': ['path'], 'collection': False},
                {'action': 'perform_post', 'params': ['path', 'body'], 'collection': False},
-               {'action': 'upload_disk_blob', 'params': ['image'], 'collection': False},
+               {'action': 'upload_disk_blob', 'params': ['blob'], 'collection': False},
                {'action': 'set_epacls', 'params': ['service', 'deployment', 'name', 'subnet'], 'collection': False},
                {'action': 'reboot_role_instance', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'start_role', 'params': ['service', 'deployment', 'name'], 'collection': False},
@@ -375,13 +384,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'update_disk', 'params': ['disk'], 'collection': False},
                {'action': 'update_dns_server', 'params': ['service', 'deployment', 'dns', 'ipaddr'], 'collection': False},
                {'action': 'update_hosted_service', 'params': [], 'collection': False},
-               {'action': 'update_os_image', 'params': ['image', 'name'], 'collection': False},
+               {'action': 'update_os_image', 'params': ['blob', 'name'], 'collection': False},
                {'action': 'update_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
                {'action': 'update_storage_account', 'params': [], 'collection': False},
-               {'action': 'update_vm_image', 'params': [], 'collection': False},
+               {'action': 'update_vm_image', 'params': ['name'], 'collection': False},
                {'action': 'upgrade_deployment', 'params': ['service', 'deployment', 'name', 'package_url', 'package_config'], 'collection': False},
                {'action': 'wait_for_operation_status', 'params': [], 'collection': False},
-               {'action': 'walk_upgrade_domain', 'params': [], 'collection': False},
+               {'action': 'walk_upgrade_domain', 'params': ['service', 'deployment', 'upgrade_domain'], 'collection': False},
                {'action': 'xml_endpoint_fragment_from_dict', 'params': ['epacls'], 'collection': False}]
 
     default_end_date = datetime.now()
@@ -426,37 +435,17 @@ class AzureCloudClass(BaseCloudHarnessClass):
     default_account_type = 'Standard_GRS'
     default_key_type = 'Primary'
     default_mode = 'auto'
-            
+
     def __init__(self, subscription_id=None, management_certificate=None):
-        self.service = None
-        self.label = None
-        self.description = None
-        self.name = None
-        self.dns = None
-        self.ipaddr = None
-        self.image = None
-        self.disk = None
-        self.thumbprint = None
-        self.certificate = None
-        self.publish_settings = None
-        self.request_id = None
-        self.deployment = None
-        self.password = None
-        self.os = None
-        self.availset = None
-        self.network = None
-        self.subnet = None
-        self.lun = None
-        self.location = None
-        self.package_url = None
-        self.package_config = None
         self.subscription_id = subscription_id or self.default_subscription_id
         self.management_certificate = management_certificate or self.default_management_certificate
         if not self.subscription_id or not self.management_certificate:
             logger('%s: requires an Azure subscription_id and management_certificate' % inspect.stack()[0][3])
             sys.exit(1)
         else:
-            self.sms = ServiceManagementService(self.subscription_id, self.management_certificate, request_session=self.set_proxy())
+            self.sms = ServiceManagementService(self.subscription_id,
+                                                self.management_certificate,
+                                                request_session=self.set_proxy())
 
     def add_resource_extension(self, *args):
         try:
@@ -504,7 +493,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.name = self.get_params(key='name', params=arg, default=None)
             if isinstance(self.name, list): self.name = self.name[0]
             self.os = self.get_params(key='os', params=arg, default=None)
-            self.image = self.get_params(key='image', params=arg, default=None)
+            self.blob = self.get_params(key='blob', params=arg, default=None)
+            if isinstance(self.blob, list): self.blob = self.blob[0]
             self.account = self.get_params(key='account', params=arg, default=None)
             self.subnet = self.get_params(key='subnet', params=arg, default=None)
             self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)
@@ -618,7 +608,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                                                       self.service,
                                                                                       self.name,
                                                                                       ts)
-            self.disk_config = OSVirtualHardDisk(source_image_name=self.image,
+            self.disk_config = OSVirtualHardDisk(source_image_name=self.blob,
                                                  media_link=self.media_link,
                                                  host_caching=None,
                                                  disk_label=None,
@@ -669,7 +659,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                                                         'deployment': self.deployment,
                                                                                         'name': self.name,
                                                                                         'verbose': False})))
-            self.image = self.get_params(key='image', params=arg, default=None)
+            self.blob = self.get_params(key='blob', params=arg, default=None)
+            if isinstance(self.blob, list): self.blob = self.blob[0]
             self.disk = self.get_params(key='disk', params=arg, default=None)
             self.label = self.get_params(key='label', params=arg, default=None)
             self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
@@ -681,11 +672,11 @@ class AzureCloudClass(BaseCloudHarnessClass):
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             ts = mkdate(datetime.now(), '%Y-%m-%d-%H-%M-%S-%f')
-            if self.image:
+            if self.blob:
                 self.media_link = None
                 self.source_media_link = 'https://%s.blob.core.windows.net/%s/%s' % (self.account,
                                                                                      self.container,
-                                                                                     self.image)
+                                                                                     self.blob)
             elif self.disk:
                 self.source_media_link = None
                 self.media_link = None             
@@ -735,14 +726,15 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.os = self.get_params(key='os', params=arg, default=None)
             self.name = self.get_params(key='name', params=arg, default=None)
             if isinstance(self.name, list): self.name = self.name[0]
-            self.image = self.get_params(key='image', params=arg, default=None)
+            self.blob = self.get_params(key='blob', params=arg, default=None)
+            if isinstance(self.blob, list): self.blob = self.blob[0]
             self.label = self.get_params(key='label', params=arg, default=self.name)
             self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
             self.container = self.get_params(key='container', params=arg, default='images')       
             self.readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
-            self.media_link = 'https://%s.blob.core.windows.net/%s/%s' % (self.account, self.container, self.image)
+            self.media_link = 'https://%s.blob.core.windows.net/%s/%s' % (self.account, self.container, self.blob)
             
             if verbose: pprint.pprint(self.__dict__)
 
@@ -866,7 +858,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
             arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
             if not arg: return False
             
-            self.image = self.get_params(key='image', params=arg, default=None)
+            self.blob = self.get_params(key='blob', params=arg, default=None)
+            if isinstance(self.blob, list): self.blob = self.blob[0]
             self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
             self.key = self.get_storage_account_keys({'account': self.account,
                                                       'verbose': False})['storage_service_keys']['primary']
@@ -878,10 +871,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             if not self.readonly:                
                 blob_service = BlobService(self.account, self.key)                
-                with open(self.image) as f:
+                with open(self.blob) as f:
                     result = blob_service.delete_blob(self,
                                                       self.container,
-                                                      self.image,
+                                                      self.blob,
                                                       snapshot=None,
                                                       timeout=None,
                                                       x_ms_lease_id=None,
@@ -899,8 +892,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
             arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
             if not arg: return False
             
-            self.image = self.get_params(key='image', params=arg, default=None)
-            self.disk_size = os.stat(self.image).st_size
+            self.blob = self.get_params(key='blob', params=arg, default=None)
+            if isinstance(self.blob, list): self.blob = self.blob[0]
+            self.disk_size = os.stat(self.blob).st_size
             self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
             self.key = self.get_storage_account_keys({'account': self.account,
                                                       'verbose': False})['storage_service_keys']['primary']
@@ -912,9 +906,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             if not self.readonly:                
                 blob_service = BlobService(self.account, self.key)                
-                with open(self.image) as f:
+                with open(self.blob) as f:
                     result = blob_service.put_page_blob_from_file(self.container,
-                                                                  self.image,
+                                                                  self.blob,
                                                                   f,
                                                                   count=self.disk_size,
                                                                   max_connections=4,
@@ -935,7 +929,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.name = self.get_params(key='name', params=arg, default=None)
             if isinstance(self.name, list): self.name = self.name[0]
             self.label = self.get_params(key='label', params=arg, default=self.name)
-            self.image = self.get_params(key='image', params=arg, default=None)
+            self.blob = self.get_params(key='blob', params=arg, default=None)
+            if isinstance(self.blob, list): self.blob = self.blob[0]
             self.os = self.get_params(key='os', params=arg, default=None)
             self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
             self.container = self.get_params(key='container', params=arg, default='images')       
@@ -945,7 +940,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             self.media_link = 'https://%s.blob.core.windows.net/%s/%s' % (self.account,
                                                                           self.container,
-                                                                          self.image)
+                                                                          self.blob)
             if verbose: pprint.pprint(self.__dict__)
 
             if not self.readonly:
@@ -1523,7 +1518,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if isinstance(self.name, list): self.name = self.name[0]
             self.dns = self.get_params(key='dns', params=arg, default=None)
             self.os = self.get_params(key='os', params=arg, default=None)
-            self.image = self.get_params(key='image', params=arg, default=None)
+            self.blob = self.get_params(key='blob', params=arg, default=None)
+            if isinstance(self.blob, list): self.blob = self.blob[0]
             self.account = self.get_params(key='account', params=arg, default=None)
             self.network = self.get_params(key='network', params=arg, default=None)
             self.subnet = self.get_params(key='subnet', params=arg, default=None)
@@ -1639,7 +1635,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                                                       self.service,
                                                                                       self.name,
                                                                                       ts)
-            self.disk_config = OSVirtualHardDisk(source_image_name=self.image,
+            self.disk_config = OSVirtualHardDisk(source_image_name=self.blob,
                                                  media_link=self.media_link,
                                                  host_caching=None,
                                                  disk_label=None,
@@ -1695,8 +1691,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.name = self.get_params(key='name', params=arg, default=None)
             if isinstance(self.name, list): self.name = self.name[0]
             self.post_capture_action = self.get_params(key='post_capture_action', params=arg, default=self.default_post_capture_action)
-            self.image = self.get_params(key='image', params=arg, default=None)
-            self.label = self.get_params(key='label', params=arg, default=self.image)
+            self.blob = self.get_params(key='blob', params=arg, default=None)
+            if isinstance(self.blob, list): self.blob = self.blob[0]
+            self.label = self.get_params(key='label', params=arg, default=self.blob)
             
             self.os = self.get_params(key='os', params=arg, default=self.get_os_for_role(service=self.service,
                                                                                          deployment=self.deployment,
@@ -1777,7 +1774,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 try:
                     d = dict()                    
                     result = self.sms.capture_role(self.service, self.deployment, self.name,
-                                                   self.post_capture_action, self.image, self.label,
+                                                   self.post_capture_action, self.blob, self.label,
                                                    provisioning_configuration=self.os_config)
                     d['result'] = result.__dict__
                     if not self.async:
@@ -1806,8 +1803,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.name = self.get_params(key='name', params=arg, default=None)
             if isinstance(self.name, list): self.name = self.name[0]
-            self.image = self.get_params(key='image', params=arg, default=None)
-            self.label = self.get_params(key='label', params=arg, default=self.image)
+            self.blob = self.get_params(key='blob', params=arg, default=None)
+            if isinstance(self.blob, list): self.blob = self.blob[0]
+            self.label = self.get_params(key='label', params=arg, default=self.blob)
             self.description = self.get_params(key='label', params=arg, default=self.label)
             self.os_state = self.get_params(key='os_state', params=arg, default=self.default_os_state)
             self.language = self.get_params(key='language', params=arg, default=None)
@@ -1819,7 +1817,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             options = CaptureRoleAsVMImage()
             options.os_state = self.os_state
-            options.vm_image_name = self.image
+            options.vm_image_name = self.blob
             options.vm_image_label = self.label
             options.description = self.description
             options.language = self.language
@@ -2044,12 +2042,99 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
         
-    def create_vm_image(self):
-        pass
+    def create_vm_image(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.blob = self.get_params(key='blob', params=arg, default=None)
+            self.name = self.get_params(key='name', params=arg, default=self.blob)
+            if isinstance(self.name, list): self.name = self.name[0]            
+            self.label = self.get_params(key='label', params=arg, default=self.name)
+            self.description = self.get_params(key='label', params=arg, default=self.label)
+            self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
+            self.os = self.get_params(key='os', params=arg, default=None)
+            self.os_state = self.get_params(key='os_state', params=arg, default=self.default_os_state)
+            self.host_caching = self.get_params(key='host_caching', params=arg, default=self.default_host_caching)
+            self.language = self.get_params(key='language', params=arg, default=None)
+            self.family = self.get_params(key='family', params=arg, default=None)
+            self.disk_size = self.get_params(key='disk_size', params=arg, default=self.default_disk_size)
+            self.size = self.get_params(key='size', params=arg, default=self.default_size)
+            self.eula_uri = self.get_params(key='eula_uri', params=arg, default=None)
+            self.icon_uri = self.get_params(key='icon_uri', params=arg, default=None)
+            self.small_icon_uri = self.get_params(key='small_icon_uri', params=arg, default=None)
+            self.show_in_gui = self.get_params(key='show_in_gui', params=arg, default=None)
+            self.privacy_uri = self.get_params(key='privacy_uri', params=arg, default=None)
+            self.async = self.get_params(key='async', params=arg, default=None)    
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)                
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            vm_image = VMImage()
+            vm_image.name = self.name
+            vm_image.label = self.label
+            vm_image.description = self.description
+            vm_image.eula = self.eula_uri
+            vm_image.icon_uri = self.icon_uri
+            vm_image.small_icon_uri = self.small_icon_uri
+            vm_image.published_date = mkdate(datetime.now(), '%Y-%m-%d')
+            vm_image.show_in_gui = self.show_in_gui
+            vm_image.privacy_uri = self.privacy_uri
+
+            media_link = 'https://%s.blob.core.windows.net/%s/%s' % (self.account,
+                                                                     'vhds',
+                                                                     self.blob[0])
+            
+            vm_image.os_disk_configuration = OSVirtualHardDisk()
+            vm_image.os_disk_configuration.os = self.os
+            vm_image.os_disk_configuration.os_state = self.os_state
+            vm_image.os_disk_configuration.media_link = media_link
+            vm_image.os_disk_configuration.host_caching = self.host_caching
+            
+            if len(self.blob) > 1:
+                vm_image.data_disk_configurations = DataVirtualHardDisks()
+                for i in range(1, len(self.blob)):
+                    data_disk_configuration = DataVirtualHardDisk()
+                    data_disk_configuration.logical_disk_size_in_gb = self.disk_size
+                    media_link = 'https://%s.blob.core.windows.net/%s/%s' % (self.account,
+                                                                             'images',
+                                                                             self.blob[i])
+                    data_disk_configuration.host_caching = self.host_caching
+                    data_disk_configuration.lun = i
+                    data_disk_configuration.media_link = media_link                 
+                    vm_image.data_disk_configurations.data_virtual_hard_disks.append(data_disk_configuration)
+            
+            vm_image.language = self.language
+            vm_image.image_family = self.family
+            vm_image.recommended_vm_size = self.size
+            self.vm_image = vm_image
+            
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                try:
+                    d = dict()                    
+                    result = self.sms.create_vm_image(self.vm_image)
+                    d['result'] = result.__dict__
+                    if not self.async:
+                        operation = self.sms.get_operation_status(result.request_id)
+                        d['operation'] = operation.__dict__
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return 
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
 
     def dict_from_response_obj(self, *args):
         obj = args[0]
-        
+
         if not isinstance(obj, dict):
             obj = self.dict_from_response_obj(obj.__dict__)
 
@@ -2064,8 +2149,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 for el in v:
                     if isinstance(el, unicode):
                         l.append(el)
-                    elif not isinstance(el, dict):                      
-                        l.append(el.__dict__)                        
+                    elif isinstance(el, dict):
+                        l.append(recurse_dict(el))                    
+                    elif '__dict__' in dir(el):
+                        l.append(el.__dict__)
                         obj[k] = l
         return obj
     
@@ -4069,7 +4156,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.name = self.get_params(key='name', params=arg, default=None)
             if isinstance(self.name, list): self.name = self.name[0]
             self.label = self.get_params(key='label', params=arg, default=self.name)
-            self.image = self.get_params(key='image', params=arg, default=None)
+            self.blob = self.get_params(key='blob', params=arg, default=None)
+            if isinstance(self.blob, list): self.blob = self.blob[0]
             self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
             self.container = self.get_params(key='container', params=arg, default='images')       
             self.os = self.get_params(key='os', params=arg, default=None)
@@ -4080,13 +4168,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             self.media_link = 'https://%s.blob.core.windows.net/%s/%s' % (self.account,
                                                                           self.container,
-                                                                          self.image)
+                                                                          self.blob)
             if verbose: pprint.pprint(self.__dict__)
 
             if not self.readonly:
                 try:
                     result = self.sms.update_os_image(self.name, self.label, self.media_link,
-                                                      self.image, self.os)
+                                                      self.blob, self.os)
                     d = dict()
                     operation = self.sms.get_operation_status(result.request_id)
                     d['result'] = result.__dict__
@@ -4176,7 +4264,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
-        
+
     def update_storage_account(self, *args):
         try:
             if not args: return False
@@ -4205,8 +4293,95 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
 
-    def update_vm_image(self):
-        pass
+    def update_vm_image(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.name = self.get_params(key='name', params=arg, default=None)
+            if isinstance(self.name, list): self.name = self.name[0]            
+            self.label = self.get_params(key='label', params=arg, default=self.name)
+            self.description = self.get_params(key='label', params=arg, default=self.label)
+            self.blob = self.get_params(key='blob', params=arg, default=None)
+            self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
+            self.os = self.get_params(key='os', params=arg, default=None)
+            self.os_state = self.get_params(key='os_state', params=arg, default=self.default_os_state)
+            self.host_caching = self.get_params(key='host_caching', params=arg, default=self.default_host_caching)
+            self.language = self.get_params(key='language', params=arg, default=None)
+            self.family = self.get_params(key='family', params=arg, default=None)
+            self.disk_size = self.get_params(key='disk_size', params=arg, default=self.default_disk_size)
+            self.size = self.get_params(key='size', params=arg, default=self.default_size)
+            self.eula_uri = self.get_params(key='eula_uri', params=arg, default=None)
+            self.icon_uri = self.get_params(key='icon_uri', params=arg, default=None)
+            self.small_icon_uri = self.get_params(key='small_icon_uri', params=arg, default=None)
+            self.show_in_gui = self.get_params(key='show_in_gui', params=arg, default=None)
+            self.privacy_uri = self.get_params(key='privacy_uri', params=arg, default=None)
+            self.async = self.get_params(key='async', params=arg, default=None)    
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)                
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            vm_image = VMImage()
+            vm_image.name = self.name
+            vm_image.label = self.label
+            vm_image.description = self.description
+            vm_image.eula = self.eula_uri
+            vm_image.icon_uri = self.icon_uri
+            vm_image.small_icon_uri = self.small_icon_uri
+            vm_image.published_date = mkdate(datetime.now(), '%Y-%m-%d')
+            vm_image.show_in_gui = self.show_in_gui
+            vm_image.privacy_uri = self.privacy_uri
+
+            media_link = 'https://%s.blob.core.windows.net/%s/%s' % (self.account,
+                                                                     'vhds',
+                                                                     self.blob[0])
+            
+            vm_image.os_disk_configuration = OSVirtualHardDisk()
+            vm_image.os_disk_configuration.os = self.os
+            vm_image.os_disk_configuration.os_state = self.os_state
+            vm_image.os_disk_configuration.media_link = media_link
+            vm_image.os_disk_configuration.host_caching = self.host_caching
+            
+            if len(self.blob) > 1:
+                vm_image.data_disk_configurations = DataVirtualHardDisks()
+                for i in range(1, len(self.blob)):
+                    data_disk_configuration = DataVirtualHardDisk()
+                    data_disk_configuration.logical_disk_size_in_gb = self.disk_size
+                    media_link = 'https://%s.blob.core.windows.net/%s/%s' % (self.account,
+                                                                             'images',
+                                                                             self.blob[i])
+                    data_disk_configuration.host_caching = self.host_caching
+                    data_disk_configuration.lun = i
+                    data_disk_configuration.media_link = media_link                 
+                    vm_image.data_disk_configurations.data_virtual_hard_disks.append(data_disk_configuration)
+            
+            vm_image.language = self.language
+            vm_image.image_family = self.family
+            vm_image.recommended_vm_size = self.size
+            self.vm_image = vm_image
+            
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                try:
+                    d = dict()                    
+                    result = self.sms.create_vm_image(self.name, self.vm_image)
+                    d['result'] = result.__dict__
+                    if not self.async:
+                        operation = self.sms.get_operation_status(result.request_id)
+                        d['operation'] = operation.__dict__
+                        d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        return d
+                    else:
+                        return 
+                except (WindowsAzureConflictError) as e:
+                    logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
 
     def urlencode_sig_query_string_part(self, url):
         enc_sig = quote_plus(parse_qs(url)['sig'][0])
@@ -4259,8 +4434,28 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
 
-    def walk_upgrade_domain(self):
-        pass
+    def walk_upgrade_domain(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.service = self.get_params(key='service', params=arg, default=None)
+            self.deployment = self.get_params(key='deployment', params=arg, default=None)
+            self.upgrade_domain = self.get_params(key='upgrade_domain', params=arg, default=None)
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not self.readonly:
+                return self.sms.walk_upgrade_domain(self.service, self.deployment, self.upgrade_domain)
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
 
     def x_ms_version(self):
         return self.sms.x_ms_version
