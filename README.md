@@ -43,7 +43,7 @@ Create a reserved IP address for the hosted service:
     --location 'West Europe'
     --verbose
 
-Create a new Linux virtual machine deployment with reserved IP and SSH authentication:
+Create a new Linux virtual machine deployment and role with reserved IP and SSH authentication and wait for provisioning completion:
 
     ./cloud-harness.py azure --action create_virtual_machine_deployment \
     --service my-hosted-service \
@@ -60,6 +60,11 @@ Create a new Linux virtual machine deployment with reserved IP and SSH authentic
     --ssh_auth \
     --disable_pwd_auth
     --verbose
+    
+    ./cloud-harness.py azure --action wait_for_vm_provisioning_completion \
+    --service my-hosted-service \
+    --deployment my-virtual-machine-deployment \
+    --name my-ubuntu-virtual-machine
 
 Add Google DNS servers to the virtual machine deployment:
 
@@ -69,7 +74,7 @@ Add Google DNS servers to the virtual machine deployment:
     --dns google-primary \
     --ipaddr 8.8.8.8
     --verbose
-
+    
     ./cloud-harness.py azure --action add_dns_server \
     --service my-hosted-service \
     --deployment my-virtual-machine-deployment \
@@ -95,13 +100,13 @@ Secure the virtual machine, by adding ACLs to the public facing SSH port:
     --subnet my-subnet-name \
     --verbose
 
-Add another Linux virtual machine to the existing deployment with a random alpha-numeric password:
+Create a Linux virtual machine (role) with a random alpha-numeric password[n2] and wait for provisioning completion:
 
     ./cloud-harness.py azure --action add_role \
     --service my-hosted-service \
     --deployment my-virtual-machine-deployment \
     --name my-second-ubuntu-virtual-machine \
-    --label 'my virtual machine label' \
+    --label 'my Linux (Ubuntu) virtual machine label' \
     --account my-storage-account \
     --blob b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-14_04-LTS-amd64-server-20140724-en-us-30GB \
     --os Linux \
@@ -109,8 +114,13 @@ Add another Linux virtual machine to the existing deployment with a random alpha
     --subnet my-subnet-name \
     --size Medium \
     --verbose
+    
+    ./cloud-harness.py azure --action wait_for_vm_provisioning_completion \
+    --service my-hosted-service \
+    --deployment my-virtual-machine-deployment \
+    --name my-second-ubuntu-virtual-machine
 
-Add CustomScript extension to the virtual machine:
+Add `CustomScript` extension to the virtual machine:
 
     ./cloud-harness.py azure --action add_resource_extension \
     --service my-hosted-service \
@@ -119,7 +129,7 @@ Add CustomScript extension to the virtual machine:
     --extension CustomScript \
     --verbose
 
-Add `ChefClient` extension to the virtual machine:
+Add `ChefClient` extension to the virtual machine[n2]:
 
     ./cloud-harness.py azure --action add_resource_extension \
     --service my-hosted-service \
@@ -136,6 +146,58 @@ Add data disk to virtual machine:
     --name my-second-ubuntu-virtual-machine \
     --account my-storage-account
 
+Create a `Windows` virtual machine (role) with random alpha-numeric password and wait for provisioning completion:
+
+    ./cloud-harness.py azure --action add_role \
+    --service my-hosted-service \
+    --deployment my-virtual-machine-deployment \
+    --name my-windows-virtual-machine \
+    --label 'my Windows 2K8R2 virtual machine label' \
+    --account my-storage-account \
+    --os Windows \
+    --blob a699494373c04fc0bc8f2bb1389d6106__Win2K8R2SP1-Datacenter-201505.01-en.us-127GB.vhd \
+    --network my-virtual-network-name \
+    --subnet my-subnet-name \
+    --size Medium \
+    --verbose
+    
+    ./cloud-harness.py azure --action wait_for_vm_provisioning_completion \
+    --service my-hosted-service \
+    --deployment my-virtual-machine-deployment \
+    --name my-windows-virtual-machine
+
+Reset the Administrator password on the `Windows` VM using `VMAccess` extension:
+
+    ./cloud-harness.py azure --action add_resource_extension \
+    --service my-hosted-service \
+    --deployment my-virtual-machine-deployment \
+    --name my-second-ubuntu-virtual-machine \
+    --extension VMAccessAgent \
+    --password new-s3cure-passw0rd \
+    --verbose
+
+Update Linux virtual machine (role) using `OSPatching` extension:
+
+    ./cloud-harness.py azure --action add_resource_extension \
+    --service my-hosted-service \
+    --deployment my-virtual-machine-deployment \
+    --name my-second-ubuntu-virtual-machine \
+    --extension OSPatching \
+    --ospatching_oneoff \
+    --verbose
+
+**DESTROY** service, deployment, virtual machines (roles), disks and associated VHDs:
+
+    ./cloud-harness.py azure --action delete_hosted_service \
+    --service my-hosted-service \
+    --delete_disks \
+    --delete_vhds
+
+**DELETE** reserved IP address:
+
+    ./cloud-harness.py azure --action delete_reserved_ip_address \
+    --ipaddr my-reserved-ip-address
+
 #### Fiddler Proxy
 To use `Fiddler2` to capture HTTPS traffic to the API
 * export your Azure Management Certificate as base64 encoded  x.509 as ClientCertificate.cer
@@ -151,3 +213,5 @@ Lots, including:
 
 #### Notes
 [n1] For more information, see [Using Fiddler to decipher Windows Azure PowerShell or REST API HTTPS traffic](http://blogs.msdn.com/b/avkashchauhan/archive/2013/01/30/using-fiddler-to-decipher-windows-azure-powershell-or-rest-api-https-traffic.aspx).
+
+[n2] SSH authentication is not compatible with `ChefClient` extension due to the way it currently handles certificates [PR45](https://github.com/chef-partners/azure-chef-extension/pull/45).
