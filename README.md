@@ -22,28 +22,28 @@ Currently only one provider is supported:
 ### Examples
 Some useful examples to deploy virtual machines and resource extensions.
 
-Create a new hosted service:
+#### Create a new hosted service:
 
     ./cloud-harness.py azure --action create_hosted_service \
     --service my-hosted-service --location 'West Europe' \
     --label 'my hosted service label'
     --verbose
 
-Add x.509 certificate containing RSA public key for SSH authentication to the hosted service:
+#### Add x.509 certificate containing RSA public key for SSH authentication to the hosted service:
 
     ./cloud-harness.py azure --action add_service_certificate \
     --service my-hosted-service \
     --certificate service_certificate.cer
     --verbose
 
-Create a reserved IP address for the hosted service:
+#### Create a reserved IP address for the hosted service:
 
     ./cloud-harness.py azure --action create_reserved_ip_address \
     --ipaddr my-reserved-ip-address \
     --location 'West Europe'
     --verbose
 
-Create a new Linux virtual machine deployment and role with reserved IP and SSH authentication and wait for provisioning completion:
+#### Create a new Linux virtual machine deployment and role with reserved IP and SSH authentication and wait for provisioning completion:
 
     ./cloud-harness.py azure --action create_virtual_machine_deployment \
     --service my-hosted-service \
@@ -66,7 +66,7 @@ Create a new Linux virtual machine deployment and role with reserved IP and SSH 
     --deployment my-virtual-machine-deployment \
     --name my-ubuntu-virtual-machine
 
-Add Google DNS servers to the virtual machine deployment:
+#### Add Google DNS servers to the virtual machine deployment:
 
     ./cloud-harness.py azure --action add_dns_server \
     --service my-hosted-service \
@@ -82,7 +82,7 @@ Add Google DNS servers to the virtual machine deployment:
     --ipaddr 8.8.4.4  
     --verbose
 
-Add `CustomScript` extension to the virtual machine, which will run `bootstrap.sh` to upgrade `WAAgent` as well as un-pack/execute `linux_custom_data.dat` where you can put additional bootstrap commands:
+#### Add `CustomScript` extension to the virtual machine, which will run `bootstrap.sh` to upgrade `WAAgent` as well as un-pack/execute `linux_custom_data.dat` where you can put additional bootstrap commands:
 
     ./cloud-harness.py azure --action add_resource_extension \
     --service my-hosted-service \
@@ -91,7 +91,7 @@ Add `CustomScript` extension to the virtual machine, which will run `bootstrap.s
     --extension CustomScript \
     --verbose
 
-Secure the virtual machine, by adding ACLs to the public facing SSH port:
+#### Secure the virtual machine, by adding ACLs to the public facing SSH port:
 
     ./cloud-harness.py azure --action set_epacls \
     --service my-hosted-service \
@@ -100,7 +100,7 @@ Secure the virtual machine, by adding ACLs to the public facing SSH port:
     --subnet my-subnet-name \
     --verbose
 
-Create a Linux virtual machine (role) with a random alpha-numeric password[n2] and wait for provisioning completion:
+#### Create a Linux virtual machine (role) with a random alpha-numeric password[n2] and wait for provisioning completion:
 
     ./cloud-harness.py azure --action add_role \
     --service my-hosted-service \
@@ -120,7 +120,7 @@ Create a Linux virtual machine (role) with a random alpha-numeric password[n2] a
     --deployment my-virtual-machine-deployment \
     --name my-second-ubuntu-virtual-machine
 
-Add `CustomScript` extension to the Linux virtual machine:
+#### Add `CustomScript` extension to the Linux virtual machine:
 
     ./cloud-harness.py azure --action add_resource_extension \
     --service my-hosted-service \
@@ -129,7 +129,7 @@ Add `CustomScript` extension to the Linux virtual machine:
     --extension CustomScript \
     --verbose
 
-Add `ChefClient` extension to the Linux virtual machine[n2]:
+#### Add `ChefClient` extension to the Linux virtual machine[n2]:
 
     ./cloud-harness.py azure --action add_resource_extension \
     --service my-hosted-service \
@@ -138,7 +138,7 @@ Add `ChefClient` extension to the Linux virtual machine[n2]:
     --extension ChefClient \
     --verbose
 
-Add data disk to virtual machine:
+#### Add data disk to virtual machine:
 
     ./cloud-harness.py azure --action add_data_disk \
     --service my-hosted-service \
@@ -146,7 +146,7 @@ Add data disk to virtual machine:
     --name my-second-ubuntu-virtual-machine \
     --account my-storage-account
 
-Create a Windows virtual machine (role) with random alpha-numeric password and wait for provisioning completion:
+#### Create a Windows virtual machine (role) with random alpha-numeric password and wait for provisioning completion:
 
     ./cloud-harness.py azure --action add_role \
     --service my-hosted-service \
@@ -166,7 +166,7 @@ Create a Windows virtual machine (role) with random alpha-numeric password and w
     --deployment my-virtual-machine-deployment \
     --name my-windows-virtual-machine
 
-Add `CustomScript` extension to the Windows virtual machine, which will run `bootstrap.ps1` to un-pack/execute `windows_custom_data.dat` where you can put additional bootstrap commands:
+#### Add `CustomScript` extension to the Windows virtual machine, which will run `bootstrap.ps1` to un-pack/execute `windows_custom_data.dat` where you can put additional bootstrap commands:
 
     ./cloud-harness.py azure --action add_resource_extension \
     --service my-hosted-service \
@@ -175,7 +175,7 @@ Add `CustomScript` extension to the Windows virtual machine, which will run `boo
     --extension CustomScript \
     --verbose
 
-Add `ChefClient` extension to the Linux virtual machine:
+#### Add `ChefClient` extension to the Linux virtual machine:
 
     ./cloud-harness.py azure --action add_resource_extension \
     --service my-hosted-service \
@@ -184,7 +184,7 @@ Add `ChefClient` extension to the Linux virtual machine:
     --extension ChefClient \
     --verbose
 
-Reset the Administrator password on the Windows VM using `VMAccess` extension:
+#### Reset the Administrator password on the Windows VM using `VMAccess` extension:
 
     ./cloud-harness.py azure --action add_resource_extension \
     --service my-hosted-service \
@@ -194,7 +194,7 @@ Reset the Administrator password on the Windows VM using `VMAccess` extension:
     --password new-s3cure-passw0rd \
     --verbose
 
-Update Linux virtual machine (role) using `OSPatching` extension:
+#### Update Linux virtual machine (role) using `OSPatching` extension:
 
     ./cloud-harness.py azure --action add_resource_extension \
     --service my-hosted-service \
@@ -204,14 +204,14 @@ Update Linux virtual machine (role) using `OSPatching` extension:
     --ospatching_oneoff \
     --verbose
 
-**DESTROY** service, deployment, virtual machines (roles), disks and associated VHDs:
+#### **DESTROY** service, deployment, virtual machines (roles), disks and associated VHDs:
 
     ./cloud-harness.py azure --action delete_hosted_service \
     --service my-hosted-service \
     --delete_disks \
     --delete_vhds
 
-**DELETE** reserved IP address:
+#### **DELETE** reserved IP address:
 
     ./cloud-harness.py azure --action delete_reserved_ip_address \
     --ipaddr my-reserved-ip-address
