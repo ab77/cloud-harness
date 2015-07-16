@@ -459,7 +459,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.os = self.get_params(key='os', params=arg, default=self.get_role({'service': self.service,
                                                                                    'deployment': self.deployment,
                                                                                    'name': self.name,
-                                                                                   'verbose': False}))       
+                                                                                   'verbose': False})['os_virtual_hard_disk']['os'])
             arg['os'] = self.os
             if arg['extension'] == 'ChefClient':                    
                 arg['rextrs'] = self.build_chefclient_resource_extension(arg)                
@@ -1695,7 +1695,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.os = self.get_params(key='os', params=arg, default=self.get_role({'service': self.service,
                                                                                    'deployment': self.deployment,
                                                                                    'name': self.name,
-                                                                                   'verbose': False}))       
+                                                                                   'verbose': False})['os_virtual_hard_disk']['os'])
             self.password = self.get_params(key='password', params=arg, default=''.join(SystemRandom().choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(11)))
             self.username = self.get_params(key='username', params=arg, default=self.default_user_name)        
             self.certificate = self.get_params(key='certificate', params=arg, default=self.default_certificate)
@@ -3625,6 +3625,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
+        
     def build_default_epacl_dict_for_os(self, **kwargs):
         try:
             os = kwargs['os']
@@ -3652,10 +3653,14 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.os = self.get_params(key='os', params=arg, default=self.get_role({'service': self.service,
                                                                                    'deployment': self.deployment,
                                                                                    'name': self.name,
-                                                                                   'verbose': False}))       
+                                                                                   'verbose': False})['os_virtual_hard_disk']['os'])
+
+            print self.os
+            
             if not self.os: return False           
 
-            self.epacls = self.get_params(key='epacls', params=arg, default=self.build_default_epacl_dict_for_os(os=self.os))
+            self.epacls = self.get_params(key='epacls', params=arg,
+                                          default=self.build_default_epacl_dict_for_os(os=self.os))
 
             body = \
             '''
