@@ -82,13 +82,13 @@ Add Google DNS servers to the virtual machine deployment:
     --ipaddr 8.8.4.4  
     --verbose
 
-Add CustomScript extension to the virtual machine, which will run `bootstrap.sh` to upgrade `WAAgent` as well as un-pack/execute `linux_custom_data.dat`:
+Add `CustomScript` extension to the virtual machine, which will run `bootstrap.sh` to upgrade `WAAgent` as well as un-pack/execute `linux_custom_data.dat` where you can put additional bootstrap commands:
 
     ./cloud-harness.py azure --action add_resource_extension \
     --service my-hosted-service \
     --deployment my-virtual-machine-deployment \
     --name my-ubuntu-virtual-machine \
-    --extension CustomScript
+    --extension CustomScript \
     --verbose
 
 Secure the virtual machine, by adding ACLs to the public facing SSH port:
@@ -120,7 +120,7 @@ Create a Linux virtual machine (role) with a random alpha-numeric password[n2] a
     --deployment my-virtual-machine-deployment \
     --name my-second-ubuntu-virtual-machine
 
-Add `CustomScript` extension to the virtual machine:
+Add `CustomScript` extension to the Linux virtual machine:
 
     ./cloud-harness.py azure --action add_resource_extension \
     --service my-hosted-service \
@@ -129,7 +129,7 @@ Add `CustomScript` extension to the virtual machine:
     --extension CustomScript \
     --verbose
 
-Add `ChefClient` extension to the virtual machine[n2]:
+Add `ChefClient` extension to the Linux virtual machine[n2]:
 
     ./cloud-harness.py azure --action add_resource_extension \
     --service my-hosted-service \
@@ -165,6 +165,24 @@ Create a Windows virtual machine (role) with random alpha-numeric password and w
     --service my-hosted-service \
     --deployment my-virtual-machine-deployment \
     --name my-windows-virtual-machine
+
+Add `CustomScript` extension to the Windows virtual machine, which will run `bootstrap.ps1` to un-pack/execute `windows_custom_data.dat` where you can put additional bootstrap commands:
+
+    ./cloud-harness.py azure --action add_resource_extension \
+    --service my-hosted-service \
+    --deployment my-virtual-machine-deployment \
+    --name my-windows-virtual-machine \
+    --extension CustomScript \
+    --verbose
+
+Add `ChefClient` extension to the Linux virtual machine:
+
+    ./cloud-harness.py azure --action add_resource_extension \
+    --service my-hosted-service \
+    --deployment my-virtual-machine-deployment \
+    --name my-windows-virtual-machine \
+    --extension ChefClient \
+    --verbose
 
 Reset the Administrator password on the Windows VM using `VMAccess` extension:
 
