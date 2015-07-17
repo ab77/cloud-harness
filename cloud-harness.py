@@ -3780,17 +3780,18 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if isinstance(self.name, list): self.name = self.name[0]
             self.subnet = self.get_params(key='subnet', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
-            self.os = self.get_params(key='os', params=arg, default=self.get_role({'service': self.service,
-                                                                                   'deployment': self.deployment,
-                                                                                   'name': self.name,
-                                                                                   'verbose': False})['os_virtual_hard_disk']['os'])
 
-            print self.os
-            
-            if not self.os: return False           
-
-            self.epacls = self.get_params(key='epacls', params=arg,
-                                          default=self.build_default_epacl_dict_for_os(os=self.os))
+            if not self.epacls:
+                self.os = self.get_params(key='os', params=arg, default=self.get_role({'service': self.service,
+                                                                                       'deployment': self.deployment,
+                                                                                       'name': self.name,
+                                                                                       'verbose': False})['os_virtual_hard_disk']['os'])
+                if self.os:
+                    self.epacls = self.get_params(key='epacls', params=arg,
+                                                  default=self.build_default_epacl_dict_for_os(os=self.os))
+                else:
+                    return False
+            if not self.epacls: return False
 
             body = \
             '''
@@ -4320,7 +4321,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 self.availset = self.get_params(key='availset', params=arg, default=None)
                 self.subnet = self.get_params(key='subnet', params=arg, default=role['configuration_sets']['configuration_sets']['subnet_names'])
                 self.rextrs = self.get_params(key='rextrs', params=arg, default=None)
-                self.eps = self.get_params(key='eps', params=arg, default=None)
+                self.eps = self.get_params(key='eps', params=arg, default=role['configuration_sets']['configuration_sets']['input_endpoints']['input_endpoints'])
+                if not isinstance(self.eps, list): self.eps = [self.eps]
                 self.os_disk = self.get_params(key='os_disk', params=arg, default=None)
                 self.data_disks = self.get_params(key='data_disk', params=arg, default=None)
                 self.async = self.get_params(key='async', params=arg, default=None) 
@@ -4340,13 +4342,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 net_config.subnet_names = subnets
                 net_config.end = subnets
 
-            self.eps = role['configuration_sets']['configuration_sets']['input_endpoints']['input_endpoints']
-            if not isinstance(self.eps, list): self.eps = [self.eps]
-            
             if self.eps:
                 endpoints = []            
                 for ep in self.eps:
-                    print ep
                     endpoints.append(ConfigurationSetInputEndpoint(name=ep['name'],
                                                                    protocol=ep['protocol'],
                                                                    port=ep['port'],
@@ -4358,7 +4356,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     net_config.input_endpoints.input_endpoints.append(endpoint)
                 
             self.net_config = net_config
-                        
+
+            self.epacls = self.build_epacls_dict_from_xml(service=self.service,
+                                                          deployment=self.deployment,
+                                                          name=self.name)           
             if verbose: pprint.pprint(self.__dict__)
             
             if not self.readonly:
@@ -4380,7 +4381,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
                         self.wait_for_vm_provisioning_completion({'service': self.service,
                                                                   'deployment': self.deployment,
-                                                                  'name': self.name})                       
+                                                                  'name': self.name})
+                        
+                        pprint.pprint(self.set_epacls({'service': self.service,
+                                                       'deployment': self.deployment,
+                                                       'name': self.name,
+                                                       'epacls': self.epacls,
+                                                       'subnet': self.subnet}))                           
                         return d
                     else:
                         return d
