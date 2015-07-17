@@ -4313,17 +4313,16 @@ class AzureCloudClass(BaseCloudHarnessClass):
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             role = self.get_role({'service': self.service, 'deployment': self.deployment, 'name': self.name, 'verbose': False})
-            role_objs = self.get_objs_for_role(service=self.service, deployment=self.deployment, name=self.name, verbose=False)
             
-            if role and role_objs:
+            if role:
                 self.os = self.get_params(key='os', params=arg, default=role['os_virtual_hard_disk']['os'])
-                self.size = self.get_params(key='size', params=arg, default=role['role_size'])
-                self.availset = self.get_params(key='availset', params=arg, default=role['availability_set_name'])
-                self.subnet = self.get_params(key='subnet', params=arg, default=role['configuration_sets'][0]['subnet_names'][0])
+                self.size = self.get_params(key='size', params=arg, default=None)
+                self.availset = self.get_params(key='availset', params=arg, default=None)
+                self.subnet = self.get_params(key='subnet', params=arg, default=role['configuration_sets']['configuration_sets']['subnet_names'])
                 self.rextrs = self.get_params(key='rextrs', params=arg, default=None)
-                self.eps = self.get_params(key='eps', params=arg, default=role['configuration_sets'][0]['input_endpoints'])
-                self.os_disk = self.get_params(key='os_disk', params=arg, default=role_objs['os_virtual_hard_disk'])
-                self.data_disks = self.get_params(key='data_disk', params=arg, default=role_objs['data_virtual_hard_disks'])
+                self.eps = self.get_params(key='eps', params=arg, default=None)
+                self.os_disk = self.get_params(key='os_disk', params=arg, default=None)
+                self.data_disks = self.get_params(key='data_disk', params=arg, default=None)
                 self.async = self.get_params(key='async', params=arg, default=None) 
                 self.readonly = self.get_params(key='readonly', params=arg, default=None)                
             else:
@@ -4332,13 +4331,32 @@ class AzureCloudClass(BaseCloudHarnessClass):
           
             net_config = ConfigurationSet()
             net_config.configuration_set_type = 'NetworkConfiguration'
-            subnet = Subnet()
-            subnet.name = self.subnet
-            subnets = Subnets()
-            subnets.subnets.append(subnet.name)
-            net_config.subnet_names = subnets
-            net_config.end = subnets
-            net_config.input_endpoints = self.eps
+
+            if self.subnet:
+                subnet = Subnet()
+                subnet.name = self.subnet
+                subnets = Subnets()
+                subnets.subnets.append(subnet.name)
+                net_config.subnet_names = subnets
+                net_config.end = subnets
+
+            self.eps = role['configuration_sets']['configuration_sets']['input_endpoints']['input_endpoints']
+            if not isinstance(self.eps, list): self.eps = [self.eps]
+            
+            if self.eps:
+                endpoints = []            
+                for ep in self.eps:
+                    print ep
+                    endpoints.append(ConfigurationSetInputEndpoint(name=ep['name'],
+                                                                   protocol=ep['protocol'],
+                                                                   port=ep['port'],
+                                                                   local_port=ep['local_port'],
+                                                                   load_balanced_endpoint_set_name=ep['load_balanced_endpoint_set_name'],
+                                                                   enable_direct_server_return=ep['enable_direct_server_return'],
+                                                                   idle_timeout_in_minutes=ep['idle_timeout_in_minutes']))                    
+                for endpoint in endpoints:
+                    net_config.input_endpoints.input_endpoints.append(endpoint)
+                
             self.net_config = net_config
                         
             if verbose: pprint.pprint(self.__dict__)
@@ -4591,7 +4609,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                               'verbose': False})
                     if 'role_instance_list' in deployment:
                         result = True
-                        for role_instance in deployment['role_instance_list']:
+                        role_instances = deployment['role_instance_list']['role_instances']
+                        if not isinstance(role_instances, list): role_instances = [role_instances]
+                        for role_instance in role_instances:
                             if role_instance['role_name'] == self.name and role_instance['instance_status'] != 'ReadyRole':
                                 logger('%s: role_name %s (%s) is currently %s' % (inspect.stack()[0][3],
                                                                                   role_instance['role_name'],
