@@ -201,7 +201,7 @@ Some useful examples to deploy virtual machines and resource extensions.
     --deployment my-virtual-machine-deployment \
     --name my-second-ubuntu-virtual-machine \
     --extension OSPatching \
-    --ospatching_oneoff \
+    --patching_oneoff \
     --verbose
 
 #### **DESTROY** service, deployment, virtual machines (roles), disks and associated VHDs:
