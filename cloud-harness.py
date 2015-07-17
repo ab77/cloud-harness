@@ -2,7 +2,7 @@
 
 '''
 Version: 0.1
-Author: Anton Belodedenko (anton@blinkbox.com)
+Author: Anton Belodedenko (anton@belodedenko.me)
 Date: 16/06/2015
 Name: Cloud Harness
 Git: https://github.com/ab77/cloud-harness
@@ -196,7 +196,15 @@ def args():
     azure.add_argument('--icon_uri', type=str, required=False, help='VM image icon URI')
     azure.add_argument('--small_icon_uri', type=str, required=False, help='VM image small icon URI')
     azure.add_argument('--show_in_gui', action='store_true', required=False, help='show VM image in GUI')
-
+    azure.add_argument('--docker_port', type=str, required=False, default=AzureCloudClass.default_docker_port, help='Docker TCP port (default: %s)' % AzureCloudClass.default_docker_port)
+    azure.add_argument('--docker_options', type=str, nargs='+', required=False, default=AzureCloudClass.default_docker_options, help='Docker options (default: %s)' % AzureCloudClass.default_docker_options)
+    azure.add_argument('--docker_username', type=str, required=False, default=AzureCloudClass.default_docker_username, help='Docker registry server username (default: %s)' % AzureCloudClass.default_docker_username)
+    azure.add_argument('--docker_password', type=str, required=False, default=AzureCloudClass.default_docker_password, help='Docker registry password (default: %s)' % AzureCloudClass.default_docker_password)
+    azure.add_argument('--docker_email', type=str, required=False, default=AzureCloudClass.default_docker_email, help='Docker registry server email (default: %s)' % AzureCloudClass.default_docker_email)
+    azure.add_argument('--docker_ca_certificate', type=str, required=False, default=AzureCloudClass.default_docker_ca_certificate, help='Docker CA certificate for TSL configuration (default: %s)' % AzureCloudClass.default_docker_ca_certificate)
+    azure.add_argument('--docker_server_certificate', type=str, required=False, default=AzureCloudClass.default_docker_server_certificate, help='Docker server certificate for TSL configuration (default: %s)' % AzureCloudClass.default_docker_server_certificate)
+    azure.add_argument('--docker_server_key', type=str, required=False, default=AzureCloudClass.default_docker_server_key, help='Docker server private key for TSL configuration (default: %s)' % AzureCloudClass.default_docker_server_key)
+    azure.add_argument('--docker_registry_server', type=str, required=False, help='Docker registry server (default: DockerHub)')
     args = parser.parse_args()
     logger(message=str(args))
     return args
@@ -224,6 +232,7 @@ class BaseCloudHarnessClass():
         proxy_host = dict(cp.items('AzureConfig'))['proxy_host']
         proxy_port = dict(cp.items('AzureConfig'))['proxy_port']
         ssl_verify = dict(cp.items('AzureConfig'))['ssl_verify']
+        default_location = dict(cp.items('AzureConfig'))['location_name']
         default_chef_server_url = dict(cp.items('ChefClient'))['chef_server_url']
         default_chef_validation_client_name = dict(cp.items('ChefClient'))['chef_validation_client_name']
         default_chef_validation_key_file = dict(cp.items('ChefClient'))['chef_validation_key_file']
@@ -242,11 +251,27 @@ class BaseCloudHarnessClass():
         default_storage_container = dict(cp.items('AzureConfig'))['storage_container']
         default_patching_healthy_test_script = dict(cp.items('OSPatchingExtensionForLinux'))['patching_healthy_test_script']        
         default_patching_idle_test_script = dict(cp.items('OSPatchingExtensionForLinux'))['patching_idle_test_script']
+        default_docker_port = dict(cp.items('DockerExtension'))['docker_port']
+        default_docker_options = dict(cp.items('DockerExtension'))['docker_options']
+        default_docker_username = dict(cp.items('DockerExtension'))['docker_username']
+        default_docker_password = dict(cp.items('DockerExtension'))['docker_password']
+        default_docker_email = dict(cp.items('DockerExtension'))['docker_email']
+        default_docker_ca_certificate = dict(cp.items('DockerExtension'))['docker_ca_certificate']
+        default_docker_server_certificate = dict(cp.items('DockerExtension'))['docker_server_certificate']
+        default_docker_server_key = dict(cp.items('DockerExtension'))['docker_server_key']
     except (KeyError, ConfigParser.NoSectionError):
         default_chef_server_url = None
         default_chef_validation_client_name = None
         default_chef_validation_key_file = None
         default_chef_run_list = None
+        default_docker_port = None
+        default_docker_options = None
+        default_docker_username = None
+        default_docker_password = None
+        default_docker_email = None
+        default_docker_ca_certificate = None
+        default_docker_server_certificate = None
+        default_docker_server_key = None
         default_windows_customscript_name = None
         default_linux_customscript_name = None
         default_remote_subnets = None
@@ -261,6 +286,7 @@ class BaseCloudHarnessClass():
         default_patching_idle_test_script = None
         default_linux_custom_data_file = None
         default_windows_custom_data_file = None
+        default_location = None
         proxy = False
         proxy_host = None
         proxy_port = None
@@ -303,17 +329,18 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'add_dns_server', 'params': ['service', 'deployment', 'dns', 'ipaddr'], 'collection': False},
                {'action': 'add_management_certificate', 'params': ['certificate'], 'collection': False},
                {'action': 'add_os_image', 'params': ['name', 'blob', 'os'], 'collection': False},
-               {'action': 'add_service_certificate', 'params': ['service', 'certificate'], 'collection': False},
+               {'action': 'add_service_certificate', 'params': ['service'], 'collection': False},
                {'action': 'build_epacls_dict_from_xml', 'params': ['deployment', 'service', 'name'], 'collection': False},
                {'action': 'build_chefclient_resource_extension', 'params': ['os'], 'collection': False},
                {'action': 'build_customscript_resource_extension', 'params': ['os'], 'collection': False},
                {'action': 'build_vmaccess_resource_extension', 'params': ['os'], 'collection': False},
                {'action': 'build_ospatching_resource_extension', 'params': ['os'], 'collection': False},
+               {'action': 'build_docker_resource_extension', 'params': ['os'], 'collection': False},
                {'action': 'build_resource_extension_dict', 'params': ['os', 'extension', 'publisher', 'version'], 'collection': False},
                {'action': 'build_resource_extensions_xml_from_dict', 'params': ['extensions'], 'collection': False},
                {'action': 'check_hosted_service_name_availability', 'params': ['service'], 'collection': False},
                {'action': 'check_storage_account_name_availability', 'params': ['account'], 'collection': False},
-               {'action': 'create_affinity_group', 'params': ['name', 'location'], 'collection': False},
+               {'action': 'create_affinity_group', 'params': ['name'], 'collection': False},
                {'action': 'create_hosted_service', 'params': ['service', 'label'], 'collection': False},
                {'action': 'create_virtual_machine_deployment', 'params': ['deployment', 'service', 'os', 'name', 'blob', 'subnet', 'account', 'network'], 'collection': False},
                {'action': 'change_deployment_configuration', 'params': ['service', 'deployment', 'package_config'], 'collection': False},
@@ -321,7 +348,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'capture_role', 'params': ['service', 'deployment', 'name', 'blob'], 'collection': False},
                {'action': 'capture_vm_image', 'params': ['service', 'deployment', 'name', 'blob'], 'collection': False},
                {'action': 'create_deployment', 'params': ['service', 'deployment', 'name', 'package_url', 'package_config'], 'collection': False},
-               {'action': 'create_reserved_ip_address', 'params': ['ipaddr', 'location'], 'collection': False},
+               {'action': 'create_reserved_ip_address', 'params': ['ipaddr'], 'collection': False},
                {'action': 'create_vm_image', 'params': ['blob', 'os'], 'collection': False},
                {'action': 'delete_affinity_group', 'params': ['name'], 'collection': False},
                {'action': 'delete_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
@@ -338,7 +365,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'delete_role_instances', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'delete_data_disk', 'params': ['service', 'deployment', 'name', 'lun'], 'collection': False},
                {'action': 'delete_vm_image', 'params': ['name'], 'collection': False},
-               {'action': 'get_certificate_from_publish_settings', 'params': ['publish_settings', 'certificate'], 'collection': False},
+               {'action': 'get_certificate_from_publish_settings', 'params': [], 'collection': False},
                {'action': 'get_storage_account_properties', 'params': [], 'collection': False},
                {'action': 'get_deployment_by_slot', 'params': ['service'], 'collection': False},
                {'action': 'get_deployment_by_name', 'params': ['service', 'deployment'], 'collection': False},
@@ -473,6 +500,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 return self.update_role(arg)
             elif arg['extension'] == 'OSPatching':
                 arg['rextrs'] = az.build_ospatching_resource_extension(arg)
+                return self.update_role(arg)                
+            elif arg['extension'] == 'DockerExtension':
+                arg['rextrs'] = az.build_docker_resource_extension(arg)
                 return self.update_role(arg)                
             else:
                 logger('%s: unsupported extension %s' % (inspect.stack()[0][3], self.extension))
@@ -791,7 +821,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             arg = self.verify_params(method=inspect.stack()[0][3], params=kwargs)
             if not arg: return False
 
-            self.certificate = self.get_params(key='certificate', params=arg, default=None)
+            self.certificate = self.get_params(key='certificate', params=arg, default=self.default_certificate)
             self.algorithm = self.get_params(key='algorithm', params=arg, default=self.default_algorithm)
             
             try:
@@ -970,7 +1000,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if not arg: return False
             
             self.service = self.get_params(key='service', params=arg, default=None)
-            self.certificate = self.get_params(key='certificate', params=arg, default=None)
+            self.certificate = self.get_params(key='certificate', params=arg, default=self.default_certificate)
             self.password = self.get_params(key='password', params=arg, default=None)
             self.readonly = self.get_params(key='readonly', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
@@ -1260,6 +1290,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.password = self.get_params(key='password', params=arg, default=None)
             self.vmaop = self.get_params(key='vmaop', params=arg, default=self.default_vmaop)
             self.certificate = self.get_params(key='certificate', params=arg, default=self.default_certificate)
+            self.algorithm = self.get_params(key='algorithm', params=arg, default=self.default_algorithm)
             self.pwd_expiry = self.get_params(key='pwd_expiry', params=arg, default=self.default_pwd_expiry)
 
             pub_config = dict()
@@ -1415,9 +1446,94 @@ class AzureCloudClass(BaseCloudHarnessClass):
     def build_dsc_resource_extension(self):
         pass
 
-    def build_docker_resource_extension(self):
-        pass
+    def build_docker_resource_extension(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.os = self.get_params(key='os', params=arg, default=None)
+            self.docker_registry_server = self.get_params(key='docker_registry_server', params=arg, default=None)
+            self.docker_username = self.get_params(key='docker_username', params=arg, default=self.default_docker_username)
+            self.docker_password = self.get_params(key='docker_password', params=arg, default=self.default_docker_password)
+            self.docker_email = self.get_params(key='docker_email', params=arg, default=self.default_docker_email)
+            self.docker_options = self.get_params(key='docker_options', params=arg, default=self.default_docker_options)
+            self.docker_options = self.docker_options.split(',')
+            self.docker_port = self.get_params(key='docker_port', params=arg, default=self.default_docker_port)
+            self.docker_ca_certificate = self.get_params(key='docker_ca_certificate', params=arg, default=self.default_docker_ca_certificate)
+            self.docker_server_certificate = self.get_params(key='docker_server_certificate', params=arg, default=self.default_docker_server_certificate)
+            self.docker_server_key = self.get_params(key='docker_server_key', params=arg, default=self.default_docker_server_key)
+
+            pub_config = dict()
+            pri_config = dict() 
+            if self.os == 'Windows':                   
+                logger(pprint.pprint(self.__dict__))
+                logger('%s is not supported in Windows' % inspect.stack()[0][3])
+                sys.exit(1)                
+            
+            if self.os == 'Linux':
+                pub_config_key = 'DockerExtensionPublicConfigParameter'
+                pri_config_key = 'DockerExtensionPrivateConfigParameter'
+                self.extension = 'DockerExtension'
+                self.publisher = 'Microsoft.Azure.Extensions'
+                rexts = self.list_resource_extension_versions({'publisher': self.publisher, 'extension': self.extension, 'verbose': False})
+                version = None
+                for rext in rexts:
+                    version = rext['version']          
+                self.version = version.split('.')[0] + '.*'
+                pub_config['timestamp'] = '%s' % timegm(time.gmtime())
+                pub_config['docker'] = dict()
+                pub_config['docker']['port'] = self.docker_port
+                pub_config['docker']['options'] = self.docker_options
+                pri_config['certs'] = dict()
+                pri_config['compose'] = dict()
+
+                try:
+                    with open(self.docker_ca_certificate, 'rb') as cf:
+                        docker_ca_certificate = b64encode(cf.read())
+                except IOError:
+                    logger('%s: unable to read %s' % (inspect.stack()[0][3], self.docker_ca_certificate))
+                    sys.exit(1)
+                
+                pri_config['certs']['ca'] = docker_ca_certificate
+
+                try:
+                    with open(self.docker_server_certificate, 'rb') as cf:
+                        docker_server_certificate = b64encode(cf.read())
+                except IOError:
+                    logger('%s: unable to read %s' % (inspect.stack()[0][3], self.docker_server_certificate))
+                    sys.exit(1)
+                
+                pri_config['certs']['cert'] = docker_server_certificate
+
+                try:
+                    with open(self.docker_server_key, 'rb') as cf:
+                        docker_server_key = b64encode(cf.read())
+                except IOError:
+                    logger('%s: unable to read %s' % (inspect.stack()[0][3], self.docker_server_key))
+                    sys.exit(1)
+                
+                pri_config['certs']['key'] = docker_server_key
+                
+                pri_config['login'] = dict()
+                pri_config['login']['server'] = self.docker_registry_server
+                pri_config['login']['username'] = self.docker_username
+                pri_config['login']['password'] = self.docker_password
+                pri_config['login']['email'] = self.docker_email
+                    
+                rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
+                                                          pri_config_key=pri_config_key, pri_config=pri_config)
+            return self.build_resource_extensions_xml_from_dict(extensions=rext[self.os])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
     
+    def build_octopusdeploy_resource_extension(self):
+        pass
+   
+    def build_puppet_resource_extension(self):
+        pass
+
     def build_logcollector_resource_extension(self):
         pass
     
@@ -1426,13 +1542,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
     
     def build_vsremotedebug_resource_extension(self):
         pass
-    
-    def build_octopusdeploy_resource_extension(self):
-        pass
-    
-    def build_puppet_resource_extension(self):
-        pass
-    
+   
     def build_bginfo_resource_extension(self):
         pass
     
@@ -1489,7 +1599,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if isinstance(self.name, list): self.name = self.name[0]
             self.label = self.get_params(key='label', params=arg, default=self.name)
             self.description = self.get_params(key='description', params=arg, default=None)
-            self.location = self.get_params(key='location', params=arg, default=None)
+            self.location = self.get_params(key='location', params=arg, default=self.default_location)
             self.async = self.get_params(key='async', params=arg, default=None)
             self.readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
@@ -1667,6 +1777,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         operation = self.sms.get_operation_status(result.request_id)
                         d['operation'] = operation.__dict__
                         d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        self.wait_for_vm_provisioning_completion({'service': self.service,
+                                                                  'deployment': self.deployment,
+                                                                  'name': self.name})
                         return d
                     else:
                         return 
@@ -1913,7 +2026,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.service = self.get_params(key='service', params=arg, default=None)
             self.label = self.get_params(key='label', params=arg, default=self.service)
             self.description = self.get_params(key='description', params=arg, default=None)
-            self.location = self.get_params(key='location', params=arg, default=None)
+            self.location = self.get_params(key='location', params=arg, default=self.default_location)
             self.group = self.get_params(key='group', params=arg, default=None)
             self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
             self.extended_properties = self.get_params(key='extended_properties', params=arg,
@@ -1923,7 +2036,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
-            if self.location: self.group = None
+            if self.group: self.location = None
             if not self.location and not self.group:
                 logger('%s: must specify either location of affinity group' % inspect.stack()[0][3])
                 sys.exit(1)
@@ -1962,7 +2075,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             self.ipaddr = self.get_params(key='ipaddr', params=arg, default=None)
             self.label = self.get_params(key='label', params=arg, default=self.ipaddr)
-            self.location = self.get_params(key='location', params=arg, default=None)
+            self.location = self.get_params(key='location', params=arg, default=self.default_location)
             self.async = self.get_params(key='async', params=arg, default=None)
             self.readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
@@ -2001,16 +2114,16 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.label = self.get_params(key='label', params=arg, default=self.account)
             self.description = self.get_params(key='description', params=arg, default=self.label)
             self.group = self.get_params(key='group', params=arg, default=None)
-            self.location = self.get_params(key='location', params=arg, default=None)
+            self.location = self.get_params(key='location', params=arg, default=self.default_location)
             self.extended_properties = self.get_params(key='extended_properties', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
             self.readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
-            if self.location: self.group = None
+            if self.group: self.location = None
             if not self.location and not self.group:
                 logger('%s: must specify either location of affinity group' % inspect.stack()[0][3])
-                sys.exit(1)
+                sys.exit(1)                
 
             if verbose: pprint.pprint(self.__dict__)
 
@@ -2129,30 +2242,46 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
 
+##    def dict_from_response_obj(self, *args):
+##        obj = args[0]
+##
+##        if not isinstance(obj, dict):
+##            obj = self.dict_from_response_obj(obj.__dict__)
+##
+##        for k, v in obj.iteritems():
+##            if '__dict__' in dir(v):
+##                obj[k] = v.__dict__
+##                obj = self.dict_from_response_obj(obj)
+##            if isinstance(v, dict):
+##                 v = recurse_dict(v)            
+##            if isinstance(v, list):               
+##                l = []
+##                for el in v:
+##                    if isinstance(el, unicode):
+##                        l.append(el)
+##                    elif isinstance(el, dict):
+##                        l.append(recurse_dict(el))                    
+##                    elif '__dict__' in dir(el):
+##                        l.append(el.__dict__)
+##                        obj[k] = l
+##        return obj
+
     def dict_from_response_obj(self, *args):
         obj = args[0]
 
-        if not isinstance(obj, dict):
+        if '__dict__' in dir(obj):
             obj = self.dict_from_response_obj(obj.__dict__)
-
-        for k, v in obj.iteritems():
-            if '__dict__' in dir(v):
-                obj[k] = v.__dict__
-                obj = self.dict_from_response_obj(obj)
-            if isinstance(v, dict):
-                 v = recurse_dict(v)            
-            if isinstance(v, list):                
-                l = []
-                for el in v:
-                    if isinstance(el, unicode):
-                        l.append(el)
-                    elif isinstance(el, dict):
-                        l.append(recurse_dict(el))                    
-                    elif '__dict__' in dir(el):
-                        l.append(el.__dict__)
-                        obj[k] = l
-        return obj
-    
+        elif isinstance(obj, dict):            
+            for k, v in obj.iteritems():
+                if '__dict__' in dir(v):
+                    obj[k] = self.dict_from_response_obj(v.__dict__)
+                if isinstance(v, dict):
+                    v = recurse_dict(v)            
+                if isinstance(v, list):
+                    for el in v:
+                        obj[k] = self.dict_from_response_obj(el)
+        return obj 
+   
     def delete_affinity_group(self, *args):
         try:
             if not args: return False
@@ -4209,7 +4338,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             subnets.subnets.append(subnet.name)
             net_config.subnet_names = subnets
             net_config.end = subnets
-            net_config.input_endpoints = self.eps            
+            net_config.input_endpoints = self.eps
             self.net_config = net_config
                         
             if verbose: pprint.pprint(self.__dict__)
@@ -4231,6 +4360,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         operation = self.sms.get_operation_status(result.request_id)
                         d['operation'] = operation.__dict__
                         d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        self.wait_for_vm_provisioning_completion({'service': self.service,
+                                                                  'deployment': self.deployment,
+                                                                  'name': self.name})                       
                         return d
                     else:
                         return d
