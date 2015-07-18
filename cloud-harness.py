@@ -225,6 +225,48 @@ class BaseCloudHarnessClass():
     except IOError:
         pass
 
+    default_subscription_id = None
+    default_management_certificate = None
+    default_docker_port = None
+    default_docker_options = None
+    default_docker_username = None
+    default_docker_password = None
+    default_docker_email = None
+    default_docker_ca_certificate = None
+    default_docker_server_certificate = None
+    default_docker_server_key = None
+    default_chef_server_url = None
+    default_chef_validation_client_name = None
+    default_chef_validation_key_file = None
+    default_chef_run_list = None
+    default_docker_port = None
+    default_docker_options = None
+    default_docker_username = None
+    default_docker_password = None
+    default_docker_email = None
+    default_docker_ca_certificate = None
+    default_docker_server_certificate = None
+    default_docker_server_key = None
+    default_windows_customscript_name = None
+    default_linux_customscript_name = None
+    default_remote_subnets = None
+    default_certificate = None
+    default_storage_account = None
+    default_storage_container = None
+    default_chef_autoupdate_client = None
+    default_chef_delete_config = None
+    default_chef_verify_api_cert = None
+    default_chef_ssl_verify_mode = None
+    default_patching_healthy_test_script = None
+    default_patching_idle_test_script = None
+    default_linux_custom_data_file = None
+    default_windows_custom_data_file = None
+    default_location = None
+    proxy = False
+    proxy_host = None
+    proxy_port = None
+    ssl_verify = False
+
     try:
         default_subscription_id = dict(cp.items('AzureConfig'))['subscription_id']
         default_management_certificate = dict(cp.items('AzureConfig'))['management_certificate']        
@@ -259,38 +301,7 @@ class BaseCloudHarnessClass():
         default_docker_ca_certificate = dict(cp.items('DockerExtension'))['docker_ca_certificate']
         default_docker_server_certificate = dict(cp.items('DockerExtension'))['docker_server_certificate']
         default_docker_server_key = dict(cp.items('DockerExtension'))['docker_server_key']
-    except (KeyError, ConfigParser.NoSectionError):
-        default_chef_server_url = None
-        default_chef_validation_client_name = None
-        default_chef_validation_key_file = None
-        default_chef_run_list = None
-        default_docker_port = None
-        default_docker_options = None
-        default_docker_username = None
-        default_docker_password = None
-        default_docker_email = None
-        default_docker_ca_certificate = None
-        default_docker_server_certificate = None
-        default_docker_server_key = None
-        default_windows_customscript_name = None
-        default_linux_customscript_name = None
-        default_remote_subnets = None
-        default_certificate = None
-        default_storage_account = None
-        default_storage_container = None
-        default_chef_autoupdate_client = None
-        default_chef_delete_config = None
-        default_chef_verify_api_cert = None
-        default_chef_ssl_verify_mode = None
-        default_patching_healthy_test_script = None
-        default_patching_idle_test_script = None
-        default_linux_custom_data_file = None
-        default_windows_custom_data_file = None
-        default_location = None
-        proxy = False
-        proxy_host = None
-        proxy_port = None
-        ssl_verify = False
+    except:
         pass
     
 class AzureCloudClass(BaseCloudHarnessClass):
@@ -466,13 +477,30 @@ class AzureCloudClass(BaseCloudHarnessClass):
     def __init__(self, subscription_id=None, management_certificate=None):
         self.subscription_id = subscription_id or self.default_subscription_id
         self.management_certificate = management_certificate or self.default_management_certificate
+
         if not self.subscription_id or not self.management_certificate:
-            logger('%s: requires an Azure subscription_id and management_certificate' % inspect.stack()[0][3])
-            sys.exit(1)
-        else:
-            self.sms = ServiceManagementService(self.subscription_id,
-                                                self.management_certificate,
-                                                request_session=self.set_proxy())
+            for psf in os.listdir("."):
+                if psf.endswith(".publishsettings"):
+                    self.publish_settings = psf
+                    break
+        
+            if self.publish_settings:
+                self.management_certificate = 'management_certificate.pem'
+                self.subscription_id = get_certificate_from_publish_settings(self.publish_settings,
+                                                                             path_to_write_certificate=self.management_certificate,
+                                                                             subscription_id=None)
+                if not self.subscription_id:
+                    logger('%s: failed to extract management certificate fom PublishSettings' % inspect.stack()[0][3])
+                    sys.exit(1)
+                else:
+                    logger('%s: written Azure management_certificate.pem for subscription_id %s' % (inspect.stack()[0][3],                                                                                               self.subscription_id))
+            else:
+                logger('%s: requires an Azure subscription_id and management_certificate (PublishSettings file not found)' % inspect.stack()[0][3])
+                sys.exit(1)
+
+        self.sms = ServiceManagementService(self.subscription_id,
+                                            self.management_certificate,
+                                            request_session=self.set_proxy())
 
     def add_resource_extension(self, *args):
         try:
@@ -3592,7 +3620,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
         return self.sms.requestid
 
     def set_proxy(self):
-        if self.proxy:
+        if self.proxy == 'True':
             s = Session()
             s.cert = self.default_management_certificate
             if self.ssl_verify == 'True':
