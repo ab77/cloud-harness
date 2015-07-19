@@ -305,7 +305,7 @@ class BaseCloudHarnessClass():
         pass
     
 class AzureCloudClass(BaseCloudHarnessClass):
-    default_action = 'list_hosted_services'
+    default_action = 'list_locations'
     actions = [{'action': 'x_ms_version', 'params': [], 'collection': False},
                {'action': 'host', 'params': [], 'collection': False},
                {'action': 'cert_file', 'params': [], 'collection': False},
@@ -489,6 +489,17 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 self.subscription_id = get_certificate_from_publish_settings(self.publish_settings,
                                                                              path_to_write_certificate=self.management_certificate,
                                                                              subscription_id=None)
+                
+                self.cp.set('AzureConfig', 'subscription_id', self.subscription_id)
+                self.cp.set('AzureConfig', 'management_certificate', self.management_certificate)
+                try:
+                    with open(self.config_file, 'wb') as cf:
+                        self.cp.write(cf)
+                except IOError:
+                    logger('%s: failed to update configuration file %s' % (inspect.stack()[0][3],
+                                                                           self.config_file))
+                    sys.exit(1)
+                    
                 if not self.subscription_id:
                     logger('%s: failed to extract management certificate fom PublishSettings' % inspect.stack()[0][3])
                     sys.exit(1)
@@ -2045,6 +2056,89 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
 
+
+    def create_virtual_network_site(self, *args):
+        # https://msdn.microsoft.com/en-us/library/azure/jj157182.aspx
+        # https://github.com/Azure/azure-sdk-for-python/issues/155
+
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+            
+            self.subnet = self.get_params(key='subnet', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            body = \
+            '''
+            <NetworkConfiguration xmlns="http://schemas.microsoft.com/ServiceHosting/2011/07/NetworkConfiguration">
+              <VirtualNetworkConfiguration>
+                <Dns>
+                  <DnsServers>
+                    <DnsServer name="" IPAddress=""/>
+                  </DnsServers>
+                </Dns>
+                <LocalNetworkSites>
+                  <LocalNetworkSite name="">
+                    <VPNGatewayAddress>gateway-address</VPNGatewayAddress>
+                    <AddressSpace>
+                      <AddressPrefix>address-prefix</AddressPrefix>
+                    </AddressSpace>
+                  </LocalNetworkSite>
+                </LocalNetworkSites>
+                <VirtualNetworkSites>
+                  <VirtualNetworkSite name="" AffinityGroup="" Location="">
+                    <Gateway profile="">
+                      <VPNClientAddressPool>
+                        <AddressPrefix>address-prefix</AddressPrefix>
+                      </VPNClientAddressPool>
+                      <ConnectionsToLocalNetwork>
+                        <LocalNetworkSiteRef name=""/>
+                          <Connection type=""/>
+                        </LocalNetworkSiteRef>
+                      </ConnectionsToLocalNetwork>
+                    </Gateway>
+                    <DnsServersRef>
+                      <DnsServerRef name=""/>
+                    </DnsServersRef>
+                    <Subnets>
+                      <Subnet name="%s">
+                        <AddressPrefix>address-prefix</AddressPrefix>
+                      </Subnet>
+                    </Subnets>
+                    <AddressSpace>
+                      <AddressPrefix>address-prefix</AddressPrefix>
+                    </AddressSpace>
+                  </VirtualNetworkSite>
+                </VirtualNetworkSites>
+              </VirtualNetworkConfiguration>
+            </NetworkConfiguration>
+            ''' % (self.subnet)
+            
+            path = '/%s/services/networking/media' % self.subscription_id
+            
+            if verbose: pprint.pprint(self.__dict__)
+
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            
+            if not self.readonly:
+                d = dict()
+                if not self.async:                  
+                    d['result'] = self.perform_put(path=path, body=body)
+                    request_id = [req_id[1] for req_id in d['result']['headers'] if req_id[0] == 'x-ms-request-id'][0]
+                    operation = self.sms.get_operation_status(request_id)
+                    d['operation'] = operation.__dict__
+                    d['operation_result'] = self.wait_for_operation_status(request_id=request_id)
+                    return d                    
+                else:
+                    return self.perform_put(path=path, body=body)
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])                
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
     def create_hosted_service(self, *args):
         try:
             if not args: return False
@@ -2269,30 +2363,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
-
-##    def dict_from_response_obj(self, *args):
-##        obj = args[0]
-##
-##        if not isinstance(obj, dict):
-##            obj = self.dict_from_response_obj(obj.__dict__)
-##
-##        for k, v in obj.iteritems():
-##            if '__dict__' in dir(v):
-##                obj[k] = v.__dict__
-##                obj = self.dict_from_response_obj(obj)
-##            if isinstance(v, dict):
-##                 v = recurse_dict(v)            
-##            if isinstance(v, list):               
-##                l = []
-##                for el in v:
-##                    if isinstance(el, unicode):
-##                        l.append(el)
-##                    elif isinstance(el, dict):
-##                        l.append(recurse_dict(el))                    
-##                    elif '__dict__' in dir(el):
-##                        l.append(el.__dict__)
-##                        obj[k] = l
-##        return obj
 
     def dict_from_response_obj(self, *args):
         obj = args[0]
@@ -4567,7 +4637,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
         params = kwargs['params']
         method = kwargs['method']
         for param in [p['params'] for p in self.actions if p['action'] == method][0]:
-            if param not in params.keys() or params[param] is None:
+            if param not in params.keys() or params[param] is None or params[param] == '':
                 logger('%s: not all required parameters %s validated, %s=%s' % (method,
                                                                                 [p['params'] for p in self.actions if p['action'] == method][0],
                                                                                 param,
