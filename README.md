@@ -10,8 +10,8 @@ Currently only one provider is supported:
 * copy cloud-harness.sample.conf to cloud-harness.conf
 * [download](https://manage.windowsazure.com/publishsettings) and save your Azure PublishSettings file with `.publishsettings` extension
 * run `./cloud-harness.py azure` for the first time to extract your management certificate and update the config file automatically (or [manually](http://stuartpreston.net/2015/02/retrieving-microsoft-azure-management-certificates-for-use-in-cross-platform-automationprovisioning-tools/))
-* set default `location_name` in `cloud-harness.conf` config file
-* set other configuration options as required in `cloud-harness.conf` config file
+* set default `location_name` in `cloud-harness.conf` config file (e.g. East US)
+* set other configuration properties as required in `cloud-harness.conf` config file
 
 ### Usage
 * run `python ./cloud-harness.py azure` for the default action `list_locations`
