@@ -354,6 +354,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'create_affinity_group', 'params': ['name'], 'collection': False},
                {'action': 'create_hosted_service', 'params': ['service', 'label'], 'collection': False},
                {'action': 'create_virtual_machine_deployment', 'params': ['deployment', 'service', 'os', 'name', 'blob', 'subnet', 'account', 'network'], 'collection': False},
+               {'action': 'create_virtual_network_site', 'params': [], 'collection': False},
                {'action': 'change_deployment_configuration', 'params': ['service', 'deployment', 'package_config'], 'collection': False},
                {'action': 'create_storage_account', 'params': ['account'], 'collection': False},
                {'action': 'capture_role', 'params': ['service', 'deployment', 'name', 'blob'], 'collection': False},
@@ -2065,74 +2066,59 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if not args: return False
             arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
             if not arg: return False
-            
+
+            self.group = self.get_params(key='group', params=arg, default=None)
+            self.network = self.get_params(key='network', params=arg, default=None)
+            self.location = self.get_params(key='location', params=arg, default=None)
             self.subnet = self.get_params(key='subnet', params=arg, default=None)
+            self.async = self.get_params(key='async', params=arg, default=None)
+            self.readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if self.location:
+                virtual_network_site = '<VirtualNetworkSite name="%s Location="%s">' % (self.network, self.location)
+            if self.group:
+                virtual_network_site = '<VirtualNetworkSite name="%s AffinityGroup="%s">' % (self.network, self.group)
+            if not self.location and not self.group:
+                logger('%s: must specify either location of affinity group' % inspect.stack()[0][3])
+                sys.exit(1)
 
             body = \
             '''
             <NetworkConfiguration xmlns="http://schemas.microsoft.com/ServiceHosting/2011/07/NetworkConfiguration">
               <VirtualNetworkConfiguration>
-                <Dns>
-                  <DnsServers>
-                    <DnsServer name="" IPAddress=""/>
-                  </DnsServers>
-                </Dns>
-                <LocalNetworkSites>
-                  <LocalNetworkSite name="">
-                    <VPNGatewayAddress>gateway-address</VPNGatewayAddress>
-                    <AddressSpace>
-                      <AddressPrefix>address-prefix</AddressPrefix>
-                    </AddressSpace>
-                  </LocalNetworkSite>
-                </LocalNetworkSites>
                 <VirtualNetworkSites>
-                  <VirtualNetworkSite name="" AffinityGroup="" Location="">
-                    <Gateway profile="">
-                      <VPNClientAddressPool>
-                        <AddressPrefix>address-prefix</AddressPrefix>
-                      </VPNClientAddressPool>
-                      <ConnectionsToLocalNetwork>
-                        <LocalNetworkSiteRef name=""/>
-                          <Connection type=""/>
-                        </LocalNetworkSiteRef>
-                      </ConnectionsToLocalNetwork>
-                    </Gateway>
-                    <DnsServersRef>
-                      <DnsServerRef name=""/>
-                    </DnsServersRef>
+                  %s
                     <Subnets>
                       <Subnet name="%s">
-                        <AddressPrefix>address-prefix</AddressPrefix>
+                        <AddressPrefix>10.10.10.0/24</AddressPrefix>
                       </Subnet>
                     </Subnets>
                     <AddressSpace>
-                      <AddressPrefix>address-prefix</AddressPrefix>
+                      <AddressPrefix>10.10.0.0/16</AddressPrefix>
                     </AddressSpace>
                   </VirtualNetworkSite>
                 </VirtualNetworkSites>
               </VirtualNetworkConfiguration>
             </NetworkConfiguration>
-            ''' % (self.subnet)
+            ''' % (virtual_network_site,
+                   self.subnet)
             
             path = '/%s/services/networking/media' % self.subscription_id
             
             if verbose: pprint.pprint(self.__dict__)
 
-            self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
-            
             if not self.readonly:
                 d = dict()
                 if not self.async:                  
-                    d['result'] = self.perform_put(path=path, body=body)
+                    d['result'] = self.perform_put(path=path, body=body, content_type='text/plain')
                     request_id = [req_id[1] for req_id in d['result']['headers'] if req_id[0] == 'x-ms-request-id'][0]
                     operation = self.sms.get_operation_status(request_id)
                     d['operation'] = operation.__dict__
                     d['operation_result'] = self.wait_for_operation_status(request_id=request_id)
                     return d                    
                 else:
-                    return self.perform_put(path=path, body=body)
+                    return self.perform_put(path=path, body=body, content_type='text/plain')
             else:
                 logger('%s: limited to read-only operations' % inspect.stack()[0][3])                
         except Exception as e:
@@ -3392,14 +3378,16 @@ class AzureCloudClass(BaseCloudHarnessClass):
             
             self.path = self.get_params(key='path', params=arg, default=None)
             self.body = self.get_params(key='body', params=arg, default=None)
+            self.content_type = self.get_params(key='content_type', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
             
             if verbose: pprint.pprint(self.__dict__)
 
             @retry(WindowsAzureConflictError, tries=3, delay=10, backoff=2, cdata='method=%s()' % inspect.stack()[0][3])
             def perform_put_retry():
-                return self.sms.perform_put(self.path, self.body, x_ms_version=self.sms.x_ms_version).__dict__
-            
+                return self.sms.perform_put(self.path, self.body,
+                                            x_ms_version=self.sms.x_ms_version,
+                                            content_type=self.content_type).__dict__
             return perform_put_retry()
         except Exception as e:
             logger(message=traceback.print_exc())
