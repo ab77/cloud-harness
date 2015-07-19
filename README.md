@@ -114,11 +114,6 @@ Some useful examples to deploy virtual machines and resource extensions.
     --subnet my-subnet-name \
     --size Medium \
     --verbose
-    
-    ./cloud-harness.py azure --action wait_for_vm_provisioning_completion \
-    --service my-hosted-service \
-    --deployment my-virtual-machine-deployment \
-    --name my-second-ubuntu-virtual-machine
 
 #### Add `CustomScript` extension to the Linux virtual machine:
 
@@ -160,11 +155,6 @@ Some useful examples to deploy virtual machines and resource extensions.
     --subnet my-subnet-name \
     --size Medium \
     --verbose
-    
-    ./cloud-harness.py azure --action wait_for_vm_provisioning_completion \
-    --service my-hosted-service \
-    --deployment my-virtual-machine-deployment \
-    --name my-windows-virtual-machine
 
 #### Add `CustomScript` extension to the Windows virtual machine, which will run `bootstrap.ps1` to un-pack/execute `windows_custom_data.dat` where you can put additional bootstrap commands:
 
