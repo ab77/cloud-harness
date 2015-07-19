@@ -10,6 +10,7 @@ Currently only one provider is supported:
 * copy cloud-harness.sample.conf to cloud-harness.conf
 * [download](https://manage.windowsazure.com/publishsettings) and save your Azure PublishSettings file with `.publishsettings` extension
 * run `./cloud-harness.py azure` for the first time to extract your management certificate and update the config file automatically (or [manually](http://stuartpreston.net/2015/02/retrieving-microsoft-azure-management-certificates-for-use-in-cross-platform-automationprovisioning-tools/))
+* set `location_name` in `cloud-harness.conf` config file; run `./cloud-harness.py azure --action list_locations` for a list of locations
 * set other configuration options as required in `cloud-harness.conf` config file
 
 ### Usage
@@ -23,7 +24,7 @@ Some useful examples to deploy virtual machines and resource extensions.
 #### Create a new hosted service:
 
     ./cloud-harness.py azure --action create_hosted_service \
-    --service my-hosted-service --location 'West Europe' \
+    --service my-hosted-service \
     --label 'my hosted service label'
     --verbose
 
@@ -38,7 +39,6 @@ Some useful examples to deploy virtual machines and resource extensions.
 
     ./cloud-harness.py azure --action create_reserved_ip_address \
     --ipaddr my-reserved-ip-address \
-    --location 'West Europe'
     --verbose
 
 #### Create a new Linux virtual machine deployment and role with reserved IP and SSH authentication and wait for provisioning completion:
