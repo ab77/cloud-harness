@@ -9,30 +9,38 @@ Currently only one provider is supported:
 * from a working Python environment, run `pip install azure && /opt && git clone https://github.com/ab77/cloud-harness.git && cd ./cloud-harness`
 * copy cloud-harness.sample.conf to cloud-harness.conf
 * [download](https://manage.windowsazure.com/publishsettings) and save your Azure PublishSettings file with `.publishsettings` extension
-* run `./cloud-harness.py azure` for the first time to extract your management certificate and update the config file automatically (or [manually](http://stuartpreston.net/2015/02/retrieving-microsoft-azure-management-certificates-for-use-in-cross-platform-automationprovisioning-tools/))
+* run `./cloud-harness.py azure` for the first time to extract your management certificate and update the config file automatically (or [manually](http://stuartpreston.net/2015/02/retrieving-microsoft-azure-management-certificates-for-use-in-cross-platform-automationprovisioning-tools/) if you wish)
 * set default `location_name` in `cloud-harness.conf` config file (e.g. East US)
-* set other configuration properties as required in `cloud-harness.conf` config file
+* set other configuration properties as required in `cloud-harness.conf` config file (e.g. `storage_account`)
 
-### Usage
+### General Usage
 * run `python ./cloud-harness.py azure` for the default action `list_locations`
 * run `python ./cloud-harness.py azure --help` to see all available command line options
 * to get get a list of required parameters for a particular action (e.g. `add_role`), run `python ./cloud-harness.py azure --action add_role`
+* specify `--verbose` flag to see various run-time properties
+* specify `--readonly` flag to limit operations, which would otherwise perform changes (usually together with `--verbose`)
 
 ### Examples
 Some useful examples to deploy virtual machines and resource extensions.
 
-#### Create a new hosted service:
+#### Create storage account (name must be unique as it forms part of the storage URL, check with `--action check_storage_account_name_availability`):
+
+    ./cloud-harness.py azure --action create_storage_account \
+    --account myuniquestorageaccountname01 \
+    --verbose
+
+#### Create a new hosted service (name must be unique within `cloudapp.net` domain, check with `--action check_storage_account_name_availability`):
 
     ./cloud-harness.py azure --action create_hosted_service \
     --service my-hosted-service \
-    --label 'my hosted service label'
+    --label 'my hosted service label' \
     --verbose
 
 #### Add x.509 certificate containing RSA public key for SSH authentication to the hosted service:
 
     ./cloud-harness.py azure --action add_service_certificate \
     --service my-hosted-service \
-    --certificate service_certificate.cer
+    --certificate service_certificate.cer \
     --verbose
 
 #### Create a reserved IP address for the hosted service:
@@ -40,6 +48,14 @@ Some useful examples to deploy virtual machines and resource extensions.
     ./cloud-harness.py azure --action create_reserved_ip_address \
     --ipaddr my-reserved-ip-address \
     --verbose
+
+#### List OS Images:
+
+    ./cloud-harness.py azure --action list_os_images
+
+#### Create Virtual Network:
+
+    <TBC>
 
 #### Create a new Linux virtual machine deployment and role with reserved IP and SSH authentication and wait for provisioning completion:
 
