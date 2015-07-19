@@ -72,7 +72,7 @@ Some useful examples to deploy virtual machines and resource extensions.
     --ipaddr my-reserved-ip-address
     --size Medium \
     --ssh_auth \
-    --disable_pwd_auth
+    --disable_pwd_auth \
     --verbose
     
     ./cloud-harness.py azure --action wait_for_vm_provisioning_completion \
@@ -86,7 +86,7 @@ Some useful examples to deploy virtual machines and resource extensions.
     --service my-hosted-service \
     --deployment my-virtual-machine-deployment \
     --dns google-primary \
-    --ipaddr 8.8.8.8
+    --ipaddr 8.8.8.8 \
     --verbose
     
     ./cloud-harness.py azure --action add_dns_server \
@@ -153,7 +153,8 @@ Some useful examples to deploy virtual machines and resource extensions.
     --service my-hosted-service \
     --deployment my-virtual-machine-deployment \
     --name my-second-ubuntu-virtual-machine \
-    --account my-storage-account
+    --account my-storage-account \
+    --verbose
 
 #### Create a Windows virtual machine (role) with random alpha-numeric password and wait for provisioning completion:
 
@@ -213,7 +214,8 @@ Some useful examples to deploy virtual machines and resource extensions.
     ./cloud-harness.py azure --action delete_hosted_service \
     --service my-hosted-service \
     --delete_disks \
-    --delete_vhds
+    --delete_vhds \
+    --verbose
 
 #### **DELETE** reserved IP address:
 
