@@ -7,10 +7,10 @@ Currently only one provider is supported:
 
 ### Installation and Configuration
 * from a working Python environment, run `pip install azure && /opt && git clone https://github.com/ab77/cloud-harness.git && cd ./cloud-harness`
-* rename cloud-harness.sample.conf to cloud-harness.conf
+* copy cloud-harness.sample.conf to cloud-harness.conf
 * [download](https://manage.windowsazure.com/publishsettings) and save your Azure PublishSettings file with `.publishsettings` extension
-* run `./cloud-harness.py azure` for the first time to extract your management certificate and update the config file (or do it [manually](http://stuartpreston.net/2015/02/retrieving-microsoft-azure-management-certificates-for-use-in-cross-platform-automationprovisioning-tools/))
-* uncomment other configuration options as required in `cloud-harness.conf` config file
+* run `./cloud-harness.py azure` for the first time to extract your management certificate and update the config file automatically (or [manually](http://stuartpreston.net/2015/02/retrieving-microsoft-azure-management-certificates-for-use-in-cross-platform-automationprovisioning-tools/))
+* set other configuration options as required in `cloud-harness.conf` config file
 
 ### Usage
 * run `python ./cloud-harness.py azure` for the default action `list_hosted_services`
