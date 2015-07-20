@@ -39,9 +39,8 @@ except ImportError:
 try:
     from azure import *
     from azure.servicemanagement import *
-    from azure.storage import AccessPolicy
+    from azure.storage import AccessPolicy, BlobService
     from azure.storage.sharedaccesssignature import SharedAccessPolicy, SharedAccessSignature
-    from azure.storage import BlobService
 except ImportError:
     sys.stderr.write('ERROR: Python module "azure" not found, please run "pip install azure".\n')
     sys.exit(1)
@@ -133,9 +132,10 @@ def args():
     azure.add_argument('--description', type=str, required=False, help='resource description')
     azure.add_argument('--name', type=str, nargs='+', required=False, help='resource name(s)')
     azure.add_argument('--group', type=str, required=False, help='group name')
-    azure.add_argument('--dns', type=str, required=False, help=' dns server name')
-    azure.add_argument('--ipaddr', type=str, required=False, help='reserved IP address name or DNS server IP address')
+    azure.add_argument('--dns', type=str, nargs='+', required=False, help='dns server name(s)')
+    azure.add_argument('--ipaddr', type=str, nargs='+', required=False, help='reserved IP address name or DNS server IP address(es)')
     azure.add_argument('--blob', type=str, nargs='+', required=False, help='disk image blob name(s)')
+    azure.add_argument('--blobtype', type=str, required=False, default=AzureCloudClass.default_blobtype, choices=['block', 'page'], help='blob type (defualt: %s)' % AzureCloudClass.default_blobtype)
     azure.add_argument('--family', type=str, required=False, help='OS image family')
     azure.add_argument('--disk', type=str, required=False, help='disk name')
     azure.add_argument('--delete_vhds', action='store_true', required=False, help='delete VHDs')
@@ -175,7 +175,9 @@ def args():
     azure.add_argument('--language', type=str, required=False, help='OS image language')
     azure.add_argument('--availset', type=str, required=False, help='availability set name')
     azure.add_argument('--network', type=str, required=False, help='virtual network name')
-    azure.add_argument('--subnet', type=str, required=False, help='subnet name')
+    azure.add_argument('--subnet', type=str, nargs='+', required=False, help='subnet name(s) (e.g. Subnet-1, Subnet-2, Subnet-3, Subnet-4, Subnet-5)')
+    azure.add_argument('--subnetaddr', type=str, nargs='+', required=False, help='subnet network address prefix(s) (e.g. 10.0.0.0/11, 10.32.0.0/11, 10.64.0.0/10, 192.168.0.0/19, 192.168.32.0/19 )')
+    azure.add_argument('--vnetaddr', type=str, nargs='+', required=False, help='virtual network address prefix(s) (e.g. 10.0.0.0/8, 192.168.0.0/16')
     azure.add_argument('--lun', type=str, required=False, help='logical (disk) unit number (LUN)')
     azure.add_argument('--location', type=str, required=False, help='resource location')
     azure.add_argument('--publisher', type=str, required=False, default=AzureCloudClass.default_publisher, help='resource extension publisher name (default: %s)' % AzureCloudClass.default_publisher)
@@ -354,7 +356,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'create_affinity_group', 'params': ['name'], 'collection': False},
                {'action': 'create_hosted_service', 'params': ['service', 'label'], 'collection': False},
                {'action': 'create_virtual_machine_deployment', 'params': ['deployment', 'service', 'os', 'name', 'blob', 'subnet', 'account', 'network'], 'collection': False},
-               {'action': 'create_virtual_network_site', 'params': [], 'collection': False},
+               {'action': 'create_virtual_network_site', 'params': ['dns', 'ipaddr', 'network', 'subnet', 'subnetaddr', 'vnetaddr'], 'collection': False},
                {'action': 'change_deployment_configuration', 'params': ['service', 'deployment', 'package_config'], 'collection': False},
                {'action': 'create_storage_account', 'params': ['account'], 'collection': False},
                {'action': 'capture_role', 'params': ['service', 'deployment', 'name', 'blob'], 'collection': False},
@@ -403,7 +405,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'perform_put', 'params': ['path', 'body'], 'collection': False},
                {'action': 'perform_delete', 'params': ['path'], 'collection': False},
                {'action': 'perform_post', 'params': ['path', 'body'], 'collection': False},
-               {'action': 'upload_disk_blob', 'params': ['blob'], 'collection': False},
+               {'action': 'upload_blob', 'params': ['blob'], 'collection': False},
                {'action': 'set_epacls', 'params': ['service', 'deployment', 'name', 'subnet'], 'collection': False},
                {'action': 'reboot_role_instance', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'start_role', 'params': ['service', 'deployment', 'name'], 'collection': False},
@@ -430,6 +432,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'wait_for_operation_status', 'params': [], 'collection': False},
                {'action': 'wait_for_vm_provisioning_completion', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'walk_upgrade_domain', 'params': ['service', 'deployment', 'upgrade_domain'], 'collection': False},
+               {'action': 'xml_networkconfig_fragment_from_dict', 'params': ['dns', 'ipaddr', 'network', 'subnet', 'subnetaddr', 'vnetaddr'], 'collection': False},
                {'action': 'xml_endpoint_fragment_from_dict', 'params': ['epacls'], 'collection': False}]
 
     default_end_date = datetime.now()
@@ -474,6 +477,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
     default_account_type = 'Standard_GRS'
     default_key_type = 'Primary'
     default_mode = 'auto'
+    default_blobtype = 'page'
 
     def __init__(self, subscription_id=None, management_certificate=None):
         self.subscription_id = subscription_id or self.default_subscription_id
@@ -566,6 +570,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if isinstance(self.blob, list): self.blob = self.blob[0]
             self.account = self.get_params(key='account', params=arg, default=None)
             self.subnet = self.get_params(key='subnet', params=arg, default=None)
+            if isinstance(self.subnet, list): self.subnet = self.subnet[0]
             self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)
             self.label = self.get_params(key='label', params=arg, default=self.name)
             self.availset = self.get_params(key='availset', params=arg, default=None)
@@ -828,10 +833,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.service = self.get_params(key='service', params=arg, default=None)
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.dns = self.get_params(key='dns', params=arg, default=None)
+            if isinstance(self.dns, list): self.dns = self.dns[0]
+            self.ipaddr = self.get_params(key='ipaddr', params=arg, default=None)
+            if isinstance(self.ipaddr, list): self.ipaddr = self.ipaddr[0]
             self.readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.ipaddr = self.get_params(key='ipaddr', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
             
@@ -955,7 +962,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
 
-    def upload_disk_blob(self, *args):
+    def upload_blob(self, *args):
         try:
             if not args: return False
             arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
@@ -967,7 +974,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
             self.key = self.get_storage_account_keys({'account': self.account,
                                                       'verbose': False})['storage_service_keys']['primary']
-            self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)       
+            self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)
+            self.blobtype = self.get_params(key='blobtype', params=arg, default=self.default_blobtype)
             self.readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
            
@@ -976,12 +984,20 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if not self.readonly:                
                 blob_service = BlobService(self.account, self.key)                
                 with open(self.blob) as f:
-                    result = blob_service.put_page_blob_from_file(self.container,
-                                                                  self.blob,
-                                                                  f,
-                                                                  count=self.disk_size,
-                                                                  max_connections=4,
-                                                                  progress_callback=None)
+                    if self.blobtype == 'page':
+                        result = blob_service.put_page_blob_from_file(self.container,
+                                                                      self.blob,
+                                                                      f,
+                                                                      count=self.disk_size,
+                                                                      max_connections=4,
+                                                                      progress_callback=None)                        
+                    if self.blobtype == 'block':
+                        result = blob_service.put_block_blob_from_file(self.container,
+                                                                       self.blob,
+                                                                       f,
+                                                                       count=self.disk_size,
+                                                                       max_connections=4,
+                                                                       progress_callback=None)                    
                 return result
             else:
                 logger('%s: limited to read-only operations' % inspect.stack()[0][3])
@@ -1271,12 +1287,15 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             self.os = self.get_params(key='os', params=arg, default=None)            
             self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)            
-            self.container = 'customscripts'
+            self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)
                    
             pub_config = dict()
             pub_config_key = 'CustomScriptExtensionPublicConfigParameter'
-            if self.os == 'Windows':
+            if self.os == 'Windows':                
                 self.script = self.get_params(key='script', params=arg, default=self.default_windows_customscript_name)
+                result = self.upload_blob({'blob': self.script, 'account': self.account,
+                                           'blobtype': 'block', 'verbose': True})
+                pprint.pprint(result)
                 pub_config['fileUris'] = ['%s' % self.generate_signed_blob_url(account=self.account,
                                                                                container=self.container,
                                                                                script=self.script)]
@@ -1295,6 +1314,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 pri_config_key = 'CustomScriptExtensionPrivateConfigParameter'
                 pri_config = dict()
                 self.script = self.get_params(key='script', params=arg, default=self.default_linux_customscript_name)
+                result = self.upload_blob({'blob': self.script, 'account': self.account,
+                                           'blobtype': 'block', 'verbose': True})
+                pprint.pprint(result)
                 self.extension = 'CustomScriptForLinux'
                 self.publisher = 'Microsoft.OSTCExtensions'
                 rexts = self.list_resource_extension_versions({'publisher': self.publisher, 'extension': self.extension, 'verbose': False})
@@ -1666,12 +1688,16 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.name = self.get_params(key='name', params=arg, default=None)
             if isinstance(self.name, list): self.name = self.name[0]
             self.dns = self.get_params(key='dns', params=arg, default=None)
+            if isinstance(self.dns, list): self.dns = self.dns[0]
+            self.ipaddr = self.get_params(key='ipaddr', params=arg, default=None)
+            if isinstance(self.ipaddr, list): self.ipaddr = self.ipaddr[0]
             self.os = self.get_params(key='os', params=arg, default=None)
             self.blob = self.get_params(key='blob', params=arg, default=None)
             if isinstance(self.blob, list): self.blob = self.blob[0]
             self.account = self.get_params(key='account', params=arg, default=None)
             self.network = self.get_params(key='network', params=arg, default=None)
             self.subnet = self.get_params(key='subnet', params=arg, default=None)
+            if isinstance(self.subnet, list): self.subnet = self.subnet[0]
             self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)
             self.label = self.get_params(key='label', params=arg, default=self.name)
             self.availset = self.get_params(key='availset', params=arg, default=None)
@@ -1683,7 +1709,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.rextrs = self.get_params(key='rextrs', params=arg, default=None)
             self.certificate = self.get_params(key='certificate', params=arg, default=self.default_certificate)
             self.algorithm = self.get_params(key='algorithm', params=arg, default=self.default_algorithm)
-            self.ipaddr = self.get_params(key='ipaddr', params=arg, default=None)            
             self.async = self.get_params(key='async', params=arg, default=None)    
             self.readonly = self.get_params(key='readonly', params=arg, default=None)                
             self.ssh_auth = self.get_params(key='ssh_auth', params=arg, default=None)                
@@ -2057,6 +2082,55 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
 
+    def xml_networkconfig_fragment_from_dict(self, **kwargs):
+        try:
+            if not kwargs: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=kwargs)
+            if not arg: return False
+
+            self.dns = self.get_params(key='dns', params=arg, default=None)
+            self.ipaddr = self.get_params(key='ipaddr', params=arg, default=None)
+            self.group = self.get_params(key='group', params=arg, default=None)
+            self.network = self.get_params(key='network', params=arg, default=None)
+            self.location = self.get_params(key='location', params=arg, default=self.default_location)
+            self.subnet = self.get_params(key='subnet', params=arg, default=None)
+            self.subnetaddr = self.get_params(key='subnetaddr', params=arg, default=None)
+            self.vnetaddr = self.get_params(key='vnetaddr', params=arg, default=None)
+            
+            root = Element('NetworkConfiguration')
+            root.set('xmlns', 'http://schemas.microsoft.com/ServiceHosting/2011/07/NetworkConfiguration')
+            vnetconfig = SubElement(root, 'VirtualNetworkConfiguration')
+            dns = SubElement(vnetconfig, 'Dns')
+            dnsservers = SubElement(dns, 'DnsServers')
+            for name, ipaddr in zip(self.dns, self.ipaddr):
+                dnsserver = SubElement(dnsservers, 'DnsServer')
+                dnsserver.set('name', name)
+                dnsserver.set('IPAddress', ipaddr)
+            vnetsites = SubElement(vnetconfig, 'VirtualNetworkSites')
+            vnetsite = SubElement(vnetsites, 'VirtualNetworkSite')
+            vnetsite.set('name', self.network)
+            if self.group:
+                vnetsite.set('AffinityGroup', self.group)
+            else:
+                vnetsite.set('Location', self.location)                
+            dnsserversref = SubElement(vnetsite, 'DnsServersRef')
+            for name in self.dns:
+                dnsserverref = SubElement(dnsserversref, 'DnsServerRef')
+                dnsserverref.set('name', name)
+            subnets = SubElement(vnetsite, 'Subnets')
+            for name, addr in zip(self.subnet, self.subnetaddr):
+                subnet = SubElement(subnets, 'Subnet')
+                subnet.set('name', name)
+                addressprefix = SubElement(subnet, 'AddressPrefix')
+                addressprefix.text = addr
+            addressspace = SubElement(vnetsite, 'AddressSpace')
+            for addr in self.vnetaddr:
+                addressprefix = SubElement(addressspace, 'AddressPrefix')
+                addressprefix.text = addr                
+            return tostring(root)
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
 
     def create_virtual_network_site(self, *args):
         # https://msdn.microsoft.com/en-us/library/azure/jj157182.aspx
@@ -2067,51 +2141,38 @@ class AzureCloudClass(BaseCloudHarnessClass):
             arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
             if not arg: return False
 
+            self.dns = self.get_params(key='dns', params=arg, default=None)
+            self.ipaddr = self.get_params(key='ipaddr', params=arg, default=None)
             self.group = self.get_params(key='group', params=arg, default=None)
             self.network = self.get_params(key='network', params=arg, default=None)
-            self.location = self.get_params(key='location', params=arg, default=None)
+            self.location = self.get_params(key='location', params=arg, default=self.default_location)
             self.subnet = self.get_params(key='subnet', params=arg, default=None)
+            self.subnetaddr = self.get_params(key='subnetaddr', params=arg, default=None)
+            self.vnetaddr = self.get_params(key='vnetaddr', params=arg, default=None)
+
             self.async = self.get_params(key='async', params=arg, default=None)
             self.readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if self.location:
-                virtual_network_site = '<VirtualNetworkSite name="%s Location="%s">' % (self.network, self.location)
-            if self.group:
-                virtual_network_site = '<VirtualNetworkSite name="%s AffinityGroup="%s">' % (self.network, self.group)
+                self.group = None
             if not self.location and not self.group:
                 logger('%s: must specify either location of affinity group' % inspect.stack()[0][3])
                 sys.exit(1)
 
-            body = \
-            '''
-            <NetworkConfiguration xmlns="http://schemas.microsoft.com/ServiceHosting/2011/07/NetworkConfiguration">
-              <VirtualNetworkConfiguration>
-                <VirtualNetworkSites>
-                  %s
-                    <Subnets>
-                      <Subnet name="%s">
-                        <AddressPrefix>10.10.10.0/24</AddressPrefix>
-                      </Subnet>
-                    </Subnets>
-                    <AddressSpace>
-                      <AddressPrefix>10.10.0.0/16</AddressPrefix>
-                    </AddressSpace>
-                  </VirtualNetworkSite>
-                </VirtualNetworkSites>
-              </VirtualNetworkConfiguration>
-            </NetworkConfiguration>
-            ''' % (virtual_network_site,
-                   self.subnet)
+            self.body = self.xml_networkconfig_fragment_from_dict(dns=self.dns, ipaddr=self.ipaddr,
+                                                                  group=self.group, location=self.location,
+                                                                  network=self.network, vnetaddr=self.vnetaddr,
+                                                                  subnet=self.subnet, subnetaddr=self.subnetaddr)
             
-            path = '/%s/services/networking/media' % self.subscription_id
+            self.path = '/%s/services/networking/media' % self.subscription_id
             
             if verbose: pprint.pprint(self.__dict__)
 
             if not self.readonly:
                 d = dict()
                 if not self.async:                  
-                    d['result'] = self.perform_put(path=path, body=body, content_type='text/plain')
+                    d['result'] = self.perform_put(path=self.path, body=self.body, content_type='text/plain')
                     request_id = [req_id[1] for req_id in d['result']['headers'] if req_id[0] == 'x-ms-request-id'][0]
                     operation = self.sms.get_operation_status(request_id)
                     d['operation'] = operation.__dict__
@@ -2182,6 +2243,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if not arg: return False
 
             self.ipaddr = self.get_params(key='ipaddr', params=arg, default=None)
+            if isinstance(self.ipaddr, list): self.ipaddr = self.ipaddr[0]
             self.label = self.get_params(key='label', params=arg, default=self.ipaddr)
             self.location = self.get_params(key='location', params=arg, default=self.default_location)
             self.async = self.get_params(key='async', params=arg, default=None)
@@ -2476,7 +2538,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.service = self.get_params(key='service', params=arg, default=None)
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.dns = self.get_params(key='dns', params=arg, default=None)
-            if isinstance(self.name, list): self.name = self.name[0]
+            if isinstance(self.dns, list): self.dns = self.dns[0]
             self.readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
@@ -2611,6 +2673,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if not arg: return False
 
             self.ipaddr = self.get_params(key='ipaddr', params=arg, default=None)
+            if isinstance(self.ipaddr, list): self.ipaddr = self.ipaddr[0]
             self.async = self.get_params(key='async', params=arg, default=None)
             self.readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
@@ -3100,6 +3163,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if not arg: return False
             
             self.ipaddr = self.get_params(key='ipaddr', params=arg, default=None)
+            if isinstance(self.ipaddr, list): self.ipaddr = self.ipaddr[0]
             verbose = self.get_params(key='verbose', params=arg, default=None)
             
             if verbose: pprint.pprint(self.__dict__)
@@ -3369,7 +3433,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
         except Exception as e:
             logger(message=traceback.print_exc())
             return False 
-    
+
     def perform_put(self, **kwargs):
         try:
             if not kwargs: return False
@@ -3385,9 +3449,72 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             @retry(WindowsAzureConflictError, tries=3, delay=10, backoff=2, cdata='method=%s()' % inspect.stack()[0][3])
             def perform_put_retry():
-                return self.sms.perform_put(self.path, self.body,
-                                            x_ms_version=self.sms.x_ms_version,
-                                            content_type=self.content_type).__dict__
+
+                def _my_perform_put(self, path, body, x_ms_version=None, content_type=None):
+                    '''
+                    Performs a PUT request and returns the response (monkey patched to accept content_type argument).
+
+                    path:
+                        Path to the resource.
+                        Ex: '/<subscription-id>/services/hostedservices/<service-name>'
+                    body:
+                        Body for the PUT request.
+                    x_ms_version:
+                        If specified, this is used for the x-ms-version header.
+                        Otherwise, self.x_ms_version is used.
+                    '''
+
+                    from azure import (
+                        WindowsAzureError,
+                        DEFAULT_HTTP_TIMEOUT,
+                        MANAGEMENT_HOST,
+                        WindowsAzureAsyncOperationError,
+                        _ERROR_ASYNC_OP_FAILURE,
+                        _ERROR_ASYNC_OP_TIMEOUT,
+                        _get_request_body,
+                        _str,
+                        _validate_not_none,
+                        _update_request_uri_query,
+                        )
+                    from azure.http import (
+                        HTTPError,
+                        HTTPRequest,
+                        )
+                    from azure.http.httpclient import _HTTPClient
+                    from azure.servicemanagement import (
+                        AZURE_MANAGEMENT_CERTFILE,
+                        AZURE_MANAGEMENT_SUBSCRIPTIONID,
+                        Operation,
+                        _MinidomXmlToObject,
+                        _management_error_handler,
+                        parse_response_for_async_op,
+                        X_MS_VERSION,
+                        )
+
+                    request = HTTPRequest()
+                    request.method = 'PUT'
+                    request.host = self.host
+                    request.path = path
+                    request.body = _get_request_body(body)        
+                    request.path, request.query = _update_request_uri_query(request)
+                    if content_type: request.headers.append(('Content-Type', content_type))
+                    request.headers = self._update_management_header(request, x_ms_version)
+                    response = self._perform_request(request)
+
+                    return response
+
+                from azure.servicemanagement.servicemanagementclient import _ServiceManagementClient as ServiceManagementClient
+
+                mpsmc = ServiceManagementClient(subscription_id=self.subscription_id,
+                                                cert_file=self.management_certificate,
+                                                request_session=self.set_proxy())
+                
+                ServiceManagementClient.perform_put = _my_perform_put                
+
+                return mpsmc.perform_put(self.path, self.body,
+                                         x_ms_version=self.sms.x_ms_version,
+                                         content_type=self.content_type).__dict__
+            
             return perform_put_retry()
         except Exception as e:
             logger(message=traceback.print_exc())
@@ -3865,6 +3992,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.name = self.get_params(key='name', params=arg, default=None)
             if isinstance(self.name, list): self.name = self.name[0]
             self.subnet = self.get_params(key='subnet', params=arg, default=None)
+            if isinstance(self.subnet, list): self.subnet = self.subnet[0]
+            self.epacls = self.get_params(key='epacls', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if not self.epacls:
@@ -3875,6 +4004,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 if self.os:
                     self.epacls = self.get_params(key='epacls', params=arg,
                                                   default=self.build_default_epacl_dict_for_os(os=self.os))
+                    self.eps = self.build_epacls_dict_from_xml(service=self.service,
+                                                               deployment=self.deployment,
+                                                               name=self.name)
+                    count = 0
+                    for epacl in self.epacls:
+                        epacl['Port'] = self.eps[count]['Port']
+                        count = count + 1   
                 else:
                     return False
             if not self.epacls: return False
@@ -4273,7 +4409,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.service = self.get_params(key='service', params=arg, default=None)
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.dns = self.get_params(key='dns', params=arg, default=None)
+            if isinstance(self.dns, list): self.dns = self.dns[0]
             self.ipaddr = self.get_params(key='ipaddr', params=arg, default=None)
+            if isinstance(self.ipaddr, list): self.ipaddr = self.ipaddr[0]
             self.readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
@@ -4406,6 +4544,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 self.size = self.get_params(key='size', params=arg, default=None)
                 self.availset = self.get_params(key='availset', params=arg, default=None)
                 self.subnet = self.get_params(key='subnet', params=arg, default=role['configuration_sets']['configuration_sets']['subnet_names'])
+                if isinstance(self.subnet, list): self.subnet = self.subnet[0]
                 self.rextrs = self.get_params(key='rextrs', params=arg, default=None)
                 self.eps = self.get_params(key='eps', params=arg, default=role['configuration_sets']['configuration_sets']['input_endpoints']['input_endpoints'])
                 if not isinstance(self.eps, list): self.eps = [self.eps]
