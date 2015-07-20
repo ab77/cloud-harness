@@ -33,7 +33,7 @@ Some useful examples to deploy virtual machines and resource extensions.
 
     ./cloud-harness.py azure --action create_hosted_service \
     --service my-hosted-service \
-    --label 'my hosted service label' \
+    --label 'my hosted service' \
     --verbose
 
 #### Add x.509 certificate containing RSA public key for SSH authentication to the hosted service:
@@ -49,21 +49,28 @@ Some useful examples to deploy virtual machines and resource extensions.
     --ipaddr my-reserved-ip-address \
     --verbose
 
+#### Create Virtual Network:
+
+    ./cloud-harness.py azure --action create_virtual_network_site \
+	--network VNet1 \
+	--dns google-primary google-secondary \
+	--ipaddr 8.8.8.8 8.8.4.4 \
+	--subnet Subnet-1 \
+	--subnetaddr 10.0.0.0/11 \
+	--vnetaddr 10.0.0.0/8 \
+	--verbose
+
 #### List OS Images:
 
     ./cloud-harness.py azure --action list_os_images
-
-#### Create Virtual Network:
-
-    <TBC>
-
+	
 #### Create a new Linux virtual machine deployment and role with reserved IP and SSH authentication and wait for provisioning completion:
 
     ./cloud-harness.py azure --action create_virtual_machine_deployment \
     --service my-hosted-service \
     --deployment my-virtual-machine-deployment \
     --name my-ubuntu-virtual-machine \
-    --label 'my deployment label' \
+    --label 'my deployment' \
     --account my-storage-account \
     --blob b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-14_04-LTS-amd64-server-20140724-en-us-30GB \
     --os Linux \
@@ -120,7 +127,7 @@ Some useful examples to deploy virtual machines and resource extensions.
     --service my-hosted-service \
     --deployment my-virtual-machine-deployment \
     --name my-second-ubuntu-virtual-machine \
-    --label 'my Linux (Ubuntu) virtual machine label' \
+    --label 'my Linux (Ubuntu) virtual machine' \
     --account my-storage-account \
     --blob b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-14_04-LTS-amd64-server-20140724-en-us-30GB \
     --os Linux \
@@ -162,7 +169,7 @@ Some useful examples to deploy virtual machines and resource extensions.
     --service my-hosted-service \
     --deployment my-virtual-machine-deployment \
     --name my-windows-virtual-machine \
-    --label 'my Windows 2K8R2 virtual machine label' \
+    --label 'my Windows 2K8R2 virtual machine' \
     --account my-storage-account \
     --os Windows \
     --blob a699494373c04fc0bc8f2bb1389d6106__Win2K8R2SP1-Datacenter-201505.01-en.us-127GB.vhd \
@@ -189,6 +196,15 @@ Some useful examples to deploy virtual machines and resource extensions.
     --extension ChefClient \
     --verbose
 
+#### Add `Docker` extension to the Linux virtual machine:
+
+    ./cloud-harness.py azure --action add_resource_extension \
+    --service my-hosted-service \
+    --deployment my-virtual-machine-deployment \
+    --name my-second-ubuntu-virtual-machine \
+    --extension DockerExtension \
+    --verbose
+	
 #### Reset the Administrator password on the Windows VM using `VMAccess` extension:
 
     ./cloud-harness.py azure --action add_resource_extension \
