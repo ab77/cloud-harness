@@ -76,16 +76,11 @@ Some useful examples to deploy virtual machines and resource extensions.
     --os Linux \
     --network my-virtual-network-name \
     --subnet my-subnet-name \
-    --ipaddr my-reserved-ip-address
+    --ipaddr my-reserved-ip-address \
     --size Medium \
     --ssh_auth \
     --disable_pwd_auth \
     --verbose
-    
-    ./cloud-harness.py azure --action wait_for_vm_provisioning_completion \
-    --service my-hosted-service \
-    --deployment my-virtual-machine-deployment \
-    --name my-ubuntu-virtual-machine
 
 #### Add Google DNS servers to the virtual machine deployment:
 

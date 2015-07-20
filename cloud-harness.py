@@ -401,6 +401,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'get_pub_key_and_thumbprint_from_x509_cert', 'params': ['certificate', 'algorithm'], 'collection': False},
                {'action': 'generate_signed_blob_url', 'params': ['account', 'container', 'script'], 'collection': False},
                {'action': 'get_epacls', 'params': ['service', 'deployment', 'name'], 'collection': False},
+               {'action': 'get_virtual_network_site', 'params': [], 'collection': False},
                {'action': 'perform_get', 'params': ['path'], 'collection': False},
                {'action': 'perform_put', 'params': ['path', 'body'], 'collection': False},
                {'action': 'perform_delete', 'params': ['path'], 'collection': False},
@@ -2126,7 +2127,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             addressspace = SubElement(vnetsite, 'AddressSpace')
             for addr in self.vnetaddr:
                 addressprefix = SubElement(addressspace, 'AddressPrefix')
-                addressprefix.text = addr                
+                addressprefix.text = addr               
             return tostring(root)
         except Exception as e:
             logger(message=traceback.print_exc())
@@ -3373,6 +3374,27 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if response:                
                 if 'Dns' in xmltodict.parse(response['body'])['Deployment']:
                     return xmltodict.parse(response['body'])['Deployment']['Dns']                
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False        
+
+    def get_virtual_network_site(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+          
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            self.path = '/%s/services/networking/media' % self.subscription_id
+            if verbose: pprint.pprint(self.__dict__)
+            
+            response = self.perform_get(path=self.path, verbose=False)
+            
+            if response:                
+                if 'VirtualNetworkConfiguration' in xmltodict.parse(response['body'])['NetworkConfiguration']:
+                    return xmltodict.parse(response['body'])['NetworkConfiguration']               
         except Exception as e:
             logger(message=traceback.print_exc())
             return False        
