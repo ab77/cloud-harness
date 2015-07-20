@@ -4608,11 +4608,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                                   'deployment': self.deployment,
                                                                   'name': self.name})
                         
-                        pprint.pprint(self.set_epacls({'service': self.service,
-                                                       'deployment': self.deployment,
-                                                       'name': self.name,
-                                                       'epacls': self.epacls,
-                                                       'subnet': self.subnet}))                           
+##                        pprint.pprint(self.set_epacls({'service': self.service,
+##                                                       'deployment': self.deployment,
+##                                                       'name': self.name,
+##                                                       'epacls': self.epacls,
+##                                                       'subnet': self.subnet}))
+                        logger('%s: network ACLs cleared, use --action set_epacls to update' % inspect.stack()[0][3])
                         return d
                     else:
                         return d
