@@ -181,7 +181,7 @@ def args():
     azure.add_argument('--lun', type=str, required=False, help='logical (disk) unit number (LUN)')
     azure.add_argument('--location', type=str, required=False, help='resource location')
     azure.add_argument('--publisher', type=str, required=False, default=AzureCloudClass.default_publisher, help='resource extension publisher name (default: %s)' % AzureCloudClass.default_publisher)
-    azure.add_argument('--extension', type=str, required=False, default=AzureCloudClass.default_extension, help='resource extension name (default: %s)' % AzureCloudClass.default_extension)
+    azure.add_argument('--extension', type=str, nargs='+', required=False, default=AzureCloudClass.default_extension, help='resource extension name(s) (default: %s)' % AzureCloudClass.default_extension)
     azure.add_argument('--vmaop', type=str, required=False, default=AzureCloudClass.default_vmaop, choices=['ResetRDPConfig', 'ResetSSHKey', 'ResetSSHKeyAndPassword', 'ResetPassword', 'DeleteUser', 'ResetSSHConfig'], help='VMAccess operation (default: %s)' % AzureCloudClass.default_vmaop)
     azure.add_argument('--patching_disabled', action='store_true', required=False, help='OSPatching disable patching')
     azure.add_argument('--patching_stop', action='store_true', required=False, help='OSPatching stop patching')
@@ -349,8 +349,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'build_vmaccess_resource_extension', 'params': ['os'], 'collection': False},
                {'action': 'build_ospatching_resource_extension', 'params': ['os'], 'collection': False},
                {'action': 'build_docker_resource_extension', 'params': ['os'], 'collection': False},
-               {'action': 'build_resource_extension_dict', 'params': ['os', 'extension', 'publisher', 'version'], 'collection': False},
-               {'action': 'build_resource_extensions_xml_from_dict', 'params': ['extensions'], 'collection': False},
+               {'action': 'build_resource_extension_dict', 'params': ['extension', 'publisher', 'version'], 'collection': False},
+               {'action': 'build_resource_extensions_xml_from_dict', 'params': ['rextrs'], 'collection': False},
                {'action': 'check_hosted_service_name_availability', 'params': ['service'], 'collection': False},
                {'action': 'check_storage_account_name_availability', 'params': ['account'], 'collection': False},
                {'action': 'create_affinity_group', 'params': ['name'], 'collection': False},
@@ -458,7 +458,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
                          'Linux': [{'LocalPort': '22',
                                     'Name': 'SSH',
                                     'Port': str(randint(49152,65535)),
-                                    'Protocol': 'tcp'}]}    
+                                    'Protocol': 'tcp'},
+                                   {'LocalPort': '2376',
+                                    'Name': 'Docker-SSL',
+                                    'Port': str(randint(49152,65535)),
+                                    'Protocol': 'tcp'}]}
+    
     default_algorithm = 'SHA1'
     default_chef_autoupdate_client = True
     default_chef_delete_config = False
@@ -524,34 +529,37 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if not args: return False
             arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
             if not arg: return False
-            
+
             self.service = self.get_params(key='service', params=arg, default=None)
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.name = self.get_params(key='name', params=arg, default=None)
             if isinstance(self.name, list): self.name = self.name[0]
+            self.extension = self.get_params(key='extension', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
             self.os = self.get_params(key='os', params=arg, default=self.get_role({'service': self.service,
                                                                                    'deployment': self.deployment,
                                                                                    'name': self.name,
                                                                                    'verbose': False})['os_virtual_hard_disk']['os'])
             arg['os'] = self.os
-            if arg['extension'] == 'ChefClient':                    
-                arg['rextrs'] = self.build_chefclient_resource_extension(arg)                
-                return self.update_role(arg)
-            elif arg['extension'] == 'CustomScript':
-                arg['rextrs'] = az.build_customscript_resource_extension(arg)
-                return self.update_role(arg)
-            elif arg['extension'] == 'VMAccessAgent':
-                arg['rextrs'] = az.build_vmaccess_resource_extension(arg)
-                return self.update_role(arg)
-            elif arg['extension'] == 'OSPatching':
-                arg['rextrs'] = az.build_ospatching_resource_extension(arg)
-                return self.update_role(arg)                
-            elif arg['extension'] == 'DockerExtension':
-                arg['rextrs'] = az.build_docker_resource_extension(arg)
-                return self.update_role(arg)                
-            else:
-                logger('%s: unsupported extension %s' % (inspect.stack()[0][3], self.extension))
+            rextrs = list()
+            for extension in self.extension:
+                if extension == 'ChefClient':
+                    rextrs.append(self.build_chefclient_resource_extension(arg))                
+                if extension == 'CustomScript':
+                    rextrs.append(az.build_customscript_resource_extension(arg))
+                if extension == 'VMAccessAgent':
+                    rextrs.append(az.build_vmaccess_resource_extension(arg))
+                if extension == 'OSPatching':
+                    rextrs.append(az.build_ospatching_resource_extension(arg))
+                if extension == 'DockerExtension':
+                    rextrs.append(az.build_docker_resource_extension(arg))
 
+            arg['rextrs'] = self.build_resource_extensions_xml_from_dict(rextrs=rextrs)
+
+            if verbose: pprint.pprint(self.__dict__)
+            
+            return self.update_role(arg)
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -1136,17 +1144,17 @@ class AzureCloudClass(BaseCloudHarnessClass):
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
-        
+
     def build_resource_extensions_xml_from_dict(self, **kwargs):
         try:
             if not kwargs: return False
             arg = self.verify_params(method=inspect.stack()[0][3], params=kwargs)
             if not arg: return False
 
-            self.extensions = self.get_params(key='extensions', params=arg, default=None)
-   
-            rers = ResourceExtensionReferences()
-            for ext in self.extensions:
+            self.rextrs = self.get_params(key='rextrs', params=arg, default=None)
+            
+            rers = list()
+            for ext in self.rextrs:
                 rer = ResourceExtensionReference()
                 rer.reference_name = ext['Name']
                 rer.publisher = ext['Publisher']
@@ -1161,8 +1169,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     repvs.resource_extension_parameter_values.append(repv)
                 rer.resource_extension_parameter_values = repvs
                 rer.state = ext['State']
-                rers.resource_extension_references.append(rer)
-            rextrs = rers
+                rer.certificates = Certificates()
+                rers.append(rer)
+            rextrs = ResourceExtensionReferences()                
+            rextrs.resource_extension_references = rers
             return rextrs
         except Exception as e:
             logger(message=traceback.print_exc())
@@ -1174,7 +1184,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
             arg = self.verify_params(method=inspect.stack()[0][3], params=kwargs)
             if not arg: return False
 
-            self.os = self.get_params(key='os', params=arg, default=None)
             self.extension = self.get_params(key='extension', params=arg, default=self.default_extension)
             self.publisher = self.get_params(key='publisher', params=arg, default=self.default_publisher)
             self.version = self.get_params(key='version', params=arg, default=None)
@@ -1184,33 +1193,34 @@ class AzureCloudClass(BaseCloudHarnessClass):
             pub_config = self.get_params(key='pub_config', params=arg, default=None)
             pri_config = self.get_params(key='pri_config', params=arg, default=None)
             
-            rext = {self.os: [{'Name': self.extension,
-                               'ReferenceName': self.extension,
-                               'Publisher': self.publisher,
-                               'Version': self.version,
-                               'State': 'Enable',
-                               'Parameters': []}]}
+            rext = {'Name': self.extension,
+                    'ReferenceName': self.extension,
+                    'Publisher': self.publisher,
+                    'Version': self.version,
+                    'State': 'Enable',
+                    'Parameters': []}
+            
             if pub_config and pub_config_key:
                 if isinstance(pub_config, dict):
                     pub_config = b64encode(json.dumps(pub_config))
                 else:
                     pub_config = b64encode(pub_config)                
-                rext[self.os][0]['Parameters'].append({'Key': pub_config_key,
-                                                       'Type': 'Public',
-                                                       'Value': pub_config})                
+                rext['Parameters'].append({'Key': pub_config_key,
+                                           'Type': 'Public',
+                                           'Value': pub_config})                
 
             if pri_config and pri_config_key:
                 if isinstance(pri_config, dict):
                     pri_config = b64encode(json.dumps(pri_config))
                 else:
                     pri_config = b64encode(pri_config)
-                rext[self.os][0]['Parameters'].append({'Key': pri_config_key,
-                                                       'Type': 'Private',
-                                                       'Value': pri_config})                    
+                rext['Parameters'].append({'Key': pri_config_key,
+                                           'Type': 'Private',
+                                           'Value': pri_config})                    
             return rext
         except Exception as e:
             logger(message=traceback.print_exc())
-            return False        
+            return False
 
     def build_chefclient_resource_extension(self, *args):
         try:
@@ -1275,7 +1285,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
                                                           pub_config_key=pub_config_key, pri_config_key=pub_config_key,
                                                           pub_config=pub_config, pri_config=pri_config)
-            return self.build_resource_extensions_xml_from_dict(extensions=rext[self.os])
+                return rext
         except Exception as e:
             logger(message=traceback.print_exc())
             return False             
@@ -1337,8 +1347,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                           pub_config_key=pub_config_key, pub_config=pub_config,
                                                           pri_config_key=pri_config_key, pri_config=pri_config)
                 
-            return self.build_resource_extensions_xml_from_dict(extensions=rext[self.os])
-        except Exception as e:
+                return rext
+        except Exception as e:            
             logger(message=traceback.print_exc())
             return False
 
@@ -1437,7 +1447,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     
                 rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
                                                           pri_config_key=pri_config_key, pri_config=pri_config)
-            return self.build_resource_extensions_xml_from_dict(extensions=rext[self.os])
+                return rext
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -1501,7 +1511,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
                                                           pub_config_key=pub_config_key, pub_config=pub_config,
                                                           pri_config_key=pri_config_key, pri_config=pri_config)
-            return self.build_resource_extensions_xml_from_dict(extensions=rext[self.os])
+                return rext
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -1585,8 +1595,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 pri_config['login']['email'] = self.docker_email
                     
                 rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
+                                                          pub_config_key=pub_config_key, pub_config=pub_config,
                                                           pri_config_key=pri_config_key, pri_config=pri_config)
-            return self.build_resource_extensions_xml_from_dict(extensions=rext[self.os])
+                return rext
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -1695,7 +1706,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.os = self.get_params(key='os', params=arg, default=None)
             self.blob = self.get_params(key='blob', params=arg, default=None)
             if isinstance(self.blob, list): self.blob = self.blob[0]
-            self.account = self.get_params(key='account', params=arg, default=None)
+            self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
             self.network = self.get_params(key='network', params=arg, default=None)
             self.subnet = self.get_params(key='subnet', params=arg, default=None)
             if isinstance(self.subnet, list): self.subnet = self.subnet[0]
@@ -1707,7 +1718,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.size = self.get_params(key='size', params=arg, default=self.default_size)
             self.username = self.get_params(key='username', params=arg, default=self.default_user_name)        
             self.eps = self.get_params(key='eps', params=arg, default=self.default_endpoints)
-            self.rextrs = self.get_params(key='rextrs', params=arg, default=None)
+##            self.rextrs = self.get_params(key='rextrs', params=arg, default=None)
+            self.extension = self.get_params(key='extension', params=arg, default=None)
             self.certificate = self.get_params(key='certificate', params=arg, default=self.default_certificate)
             self.algorithm = self.get_params(key='algorithm', params=arg, default=self.default_algorithm)
             self.async = self.get_params(key='async', params=arg, default=None)    
@@ -1817,6 +1829,23 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                  disk_name=None,
                                                  os=None,
                                                  remote_source_image_link=None)
+            
+            if self.extension:
+                rextrs = list()            
+                for extension in self.extension:
+                    if extension == 'ChefClient':
+                        rextrs.append(self.build_chefclient_resource_extension(arg))                
+                    if extension == 'CustomScript':
+                        rextrs.append(az.build_customscript_resource_extension(arg))
+                    if extension == 'VMAccessAgent':
+                        rextrs.append(az.build_vmaccess_resource_extension(arg))
+                    if extension == 'OSPatching':
+                        rextrs.append(az.build_ospatching_resource_extension(arg))
+                    if extension == 'DockerExtension':
+                        rextrs.append(az.build_docker_resource_extension(arg))
+                self.rextrs = self.build_resource_extensions_xml_from_dict(rextrs=rextrs)
+            else:
+                self.rextrs = None
             
             if verbose: pprint.pprint(self.__dict__)            
 
@@ -4577,7 +4606,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             else:
                 logger('%s: unable to retrieve properties for role %s' % (inspect.stack()[0][3], self.name))
                 return False
-          
+                    
             net_config = ConfigurationSet()
             net_config.configuration_set_type = 'NetworkConfiguration'
 
@@ -4604,9 +4633,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 
             self.net_config = net_config
 
-            self.epacls = self.build_epacls_dict_from_xml(service=self.service,
-                                                          deployment=self.deployment,
-                                                          name=self.name)           
+##            self.epacls = self.build_epacls_dict_from_xml(service=self.service,
+##                                                          deployment=self.deployment,
+##                                                          name=self.name)
+            
             if verbose: pprint.pprint(self.__dict__)
             
             if not self.readonly:

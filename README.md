@@ -98,6 +98,15 @@ Some useful examples to deploy virtual machines and resource extensions.
     --ipaddr 8.8.4.4  
     --verbose
 
+#### Add `Docker` extension to the Linux virtual machine:
+
+    ./cloud-harness.py azure --action add_resource_extension \
+    --service my-hosted-service \
+    --deployment my-virtual-machine-deployment \
+    --name my-ubuntu-virtual-machine \
+    --extension DockerExtension \
+    --verbose	
+	
 #### Add `CustomScript` extension to the virtual machine, which will run `bootstrap.sh` to upgrade `WAAgent` as well as un-pack/execute `linux_custom_data.dat` where you can put additional bootstrap commands:
 
     ./cloud-harness.py azure --action add_resource_extension \
@@ -189,15 +198,6 @@ Some useful examples to deploy virtual machines and resource extensions.
     --deployment my-virtual-machine-deployment \
     --name my-windows-virtual-machine \
     --extension ChefClient \
-    --verbose
-
-#### Add `Docker` extension to the Linux virtual machine:
-
-    ./cloud-harness.py azure --action add_resource_extension \
-    --service my-hosted-service \
-    --deployment my-virtual-machine-deployment \
-    --name my-second-ubuntu-virtual-machine \
-    --extension DockerExtension \
     --verbose
 	
 #### Reset the Administrator password on the Windows VM using `VMAccess` extension:
