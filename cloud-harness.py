@@ -2454,9 +2454,11 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 if isinstance(v, dict):
                     v = recurse_dict(v)            
                 if isinstance(v, list):
+                    l = []
                     for el in v:
-                        obj[k] = self.dict_from_response_obj(el)
-        return obj 
+                        l.append(self.dict_from_response_obj(el))
+                    obj[k] = l                   
+        return obj
    
     def delete_affinity_group(self, *args):
         try:
@@ -4158,6 +4160,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if verbose: pprint.pprint(self.__dict__)
            
             role = self.sms.get_role(self.service, self.deployment, self.name)
+            
             if role:
                 return self.dict_from_response_obj(role)
             else:
@@ -4589,16 +4592,16 @@ class AzureCloudClass(BaseCloudHarnessClass):
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             role = self.get_role({'service': self.service, 'deployment': self.deployment, 'name': self.name, 'verbose': False})
-            
+
             if role:
                 self.os = self.get_params(key='os', params=arg, default=role['os_virtual_hard_disk']['os'])
                 self.size = self.get_params(key='size', params=arg, default=None)
                 self.availset = self.get_params(key='availset', params=arg, default=None)
-                self.subnet = self.get_params(key='subnet', params=arg, default=role['configuration_sets']['configuration_sets']['subnet_names'])
+                self.subnet = self.get_params(key='subnet', params=arg, default=role['configuration_sets']['configuration_sets'][0]['subnet_names'])
                 if isinstance(self.subnet, list): self.subnet = self.subnet[0]
                 self.rextrs = self.get_params(key='rextrs', params=arg, default=None)
-                self.eps = self.get_params(key='eps', params=arg, default=role['configuration_sets']['configuration_sets']['input_endpoints']['input_endpoints'])
-                if not isinstance(self.eps, list): self.eps = [self.eps]
+                self.eps = self.get_params(key='eps', params=arg, default=None)
+                if isinstance(self.eps, list): self.subnet = self.eps[0]                
                 self.os_disk = self.get_params(key='os_disk', params=arg, default=None)
                 self.data_disks = self.get_params(key='data_disk', params=arg, default=None)
                 self.async = self.get_params(key='async', params=arg, default=None) 
@@ -4627,10 +4630,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                                    local_port=ep['local_port'],
                                                                    load_balanced_endpoint_set_name=ep['load_balanced_endpoint_set_name'],
                                                                    enable_direct_server_return=ep['enable_direct_server_return'],
-                                                                   idle_timeout_in_minutes=ep['idle_timeout_in_minutes']))                    
+                                                                   idle_timeout_in_minutes=ep['idle_timeout_in_minutes']))
                 for endpoint in endpoints:
                     net_config.input_endpoints.input_endpoints.append(endpoint)
-                
+            else:
+                self.eps = role['configuration_sets']['configuration_sets'][0]['input_endpoints']['input_endpoints']
+
             self.net_config = net_config
 
 ##            self.epacls = self.build_epacls_dict_from_xml(service=self.service,
@@ -4665,6 +4670,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
 ##                                                       'name': self.name,
 ##                                                       'epacls': self.epacls,
 ##                                                       'subnet': self.subnet}))
+                        
                         logger('%s: network ACLs cleared, use --action set_epacls to update' % inspect.stack()[0][3])
                         return d
                     else:
@@ -4895,7 +4901,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     if 'role_instance_list' in deployment:
                         result = True
                         role_instances = deployment['role_instance_list']['role_instances']
-                        if not isinstance(role_instances, list): role_instances = [role_instances]
                         for role_instance in role_instances:
                             if role_instance['role_name'] == self.name and role_instance['instance_status'] != 'ReadyRole':
                                 logger('%s: role_name %s (%s) is currently %s' % (inspect.stack()[0][3],
