@@ -356,7 +356,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'create_affinity_group', 'params': ['name'], 'collection': False},
                {'action': 'create_hosted_service', 'params': ['service', 'label'], 'collection': False},
                {'action': 'create_virtual_machine_deployment', 'params': ['deployment', 'service', 'os', 'name', 'blob', 'subnet', 'account', 'network'], 'collection': False},
-               {'action': 'create_virtual_network_site', 'params': ['dns', 'ipaddr', 'network', 'subnet', 'subnetaddr', 'vnetaddr'], 'collection': False},
+               {'action': 'create_virtual_network_site', 'params': ['network', 'subnet', 'subnetaddr', 'vnetaddr'], 'collection': False},
                {'action': 'change_deployment_configuration', 'params': ['service', 'deployment', 'package_config'], 'collection': False},
                {'action': 'create_storage_account', 'params': ['account'], 'collection': False},
                {'action': 'capture_role', 'params': ['service', 'deployment', 'name', 'blob'], 'collection': False},
@@ -433,7 +433,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'wait_for_operation_status', 'params': [], 'collection': False},
                {'action': 'wait_for_vm_provisioning_completion', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'walk_upgrade_domain', 'params': ['service', 'deployment', 'upgrade_domain'], 'collection': False},
-               {'action': 'xml_networkconfig_fragment_from_dict', 'params': ['dns', 'ipaddr', 'network', 'subnet', 'subnetaddr', 'vnetaddr'], 'collection': False},
+               {'action': 'xml_networkconfig_fragment_from_dict', 'params': ['network', 'subnet', 'subnetaddr', 'vnetaddr'], 'collection': False},
                {'action': 'xml_endpoint_fragment_from_dict', 'params': ['epacls'], 'collection': False}]
 
     default_end_date = datetime.now()
@@ -2130,23 +2130,25 @@ class AzureCloudClass(BaseCloudHarnessClass):
             root = Element('NetworkConfiguration')
             root.set('xmlns', 'http://schemas.microsoft.com/ServiceHosting/2011/07/NetworkConfiguration')
             vnetconfig = SubElement(root, 'VirtualNetworkConfiguration')
-            dns = SubElement(vnetconfig, 'Dns')
-            dnsservers = SubElement(dns, 'DnsServers')
-            for name, ipaddr in zip(self.dns, self.ipaddr):
-                dnsserver = SubElement(dnsservers, 'DnsServer')
-                dnsserver.set('name', name)
-                dnsserver.set('IPAddress', ipaddr)
+            if self.dns and self.ipaddr:
+                dns = SubElement(vnetconfig, 'Dns')
+                dnsservers = SubElement(dns, 'DnsServers')
+                for name, ipaddr in zip(self.dns, self.ipaddr):
+                    dnsserver = SubElement(dnsservers, 'DnsServer')
+                    dnsserver.set('name', name)
+                    dnsserver.set('IPAddress', ipaddr)
             vnetsites = SubElement(vnetconfig, 'VirtualNetworkSites')
             vnetsite = SubElement(vnetsites, 'VirtualNetworkSite')
             vnetsite.set('name', self.network)
             if self.group:
                 vnetsite.set('AffinityGroup', self.group)
             else:
-                vnetsite.set('Location', self.location)                
-            dnsserversref = SubElement(vnetsite, 'DnsServersRef')
-            for name in self.dns:
-                dnsserverref = SubElement(dnsserversref, 'DnsServerRef')
-                dnsserverref.set('name', name)
+                vnetsite.set('Location', self.location)
+            if self.dns and self.ipaddr:
+                dnsserversref = SubElement(vnetsite, 'DnsServersRef')
+                for name in self.dns:
+                    dnsserverref = SubElement(dnsserversref, 'DnsServerRef')
+                    dnsserverref.set('name', name)
             subnets = SubElement(vnetsite, 'Subnets')
             for name, addr in zip(self.subnet, self.subnetaddr):
                 subnet = SubElement(subnets, 'Subnet')
@@ -2156,7 +2158,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             addressspace = SubElement(vnetsite, 'AddressSpace')
             for addr in self.vnetaddr:
                 addressprefix = SubElement(addressspace, 'AddressPrefix')
-                addressprefix.text = addr               
+                addressprefix.text = addr
             return tostring(root)
         except Exception as e:
             logger(message=traceback.print_exc())
