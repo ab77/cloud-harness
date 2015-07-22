@@ -7,6 +7,7 @@ if (Test-Path $custom_data_file) {
 	Write-Host "Processing custom-data..."
 	$custom_data = Get-Content $custom_data_file
 	[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($custom_data)) > $bootstrap_script
+	Write-Host "Executing $bootstrap_script..."
 	& powershell.exe -ExecutionPolicy Unrestricted -File $bootstrap_script
 
 } else {
