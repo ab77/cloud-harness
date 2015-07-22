@@ -579,7 +579,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if isinstance(self.blob, list): self.blob = self.blob[0]
             self.account = self.get_params(key='account', params=arg, default=None)
             self.subnet = self.get_params(key='subnet', params=arg, default=None)
-            if isinstance(self.subnet, list): self.subnet = self.subnet[0]
             self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)
             self.label = self.get_params(key='label', params=arg, default=self.name)
             self.availset = self.get_params(key='availset', params=arg, default=None)
@@ -619,11 +618,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             net_config = ConfigurationSet()
             net_config.configuration_set_type = 'NetworkConfiguration'
-            subnet = Subnet()
-            subnet.name = self.subnet           
-            subnets = Subnets()
-            subnets.subnets.append(subnet.name)
-            net_config.subnet_names = subnets
+            net_config.subnet_names = self.subnet
            
             endpoints = []                        
             if self.os in ['Windows']:
@@ -646,10 +641,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                                    local_port=ep['LocalPort'],
                                                                    load_balanced_endpoint_set_name=None,
                                                                    enable_direct_server_return=False))                    
-                for endpoint in endpoints:
-                    net_config.input_endpoints.input_endpoints.append(endpoint)
-
-            endpoints = []                
+                    eps = ConfigurationSetInputEndpoints()
+                    eps.input_endpoints = endpoints
+                    net_config.input_endpoints = eps
+               
             if self.os in ['Linux']:
                 if self.disable_pwd_auth:
                     self.password = None
@@ -681,10 +676,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                                    local_port=ep['LocalPort'],
                                                                    load_balanced_endpoint_set_name=None,
                                                                    enable_direct_server_return=False))
-                for endpoint in endpoints:
-                    net_config.input_endpoints.input_endpoints.append(endpoint)
-                
-            self.net_config = net_config            
+                    eps = ConfigurationSetInputEndpoints()
+                    eps.input_endpoints = endpoints
+                    net_config.input_endpoints = eps
+                    
+            self.net_config = net_config
+            
             ts = mkdate(datetime.now(), '%Y-%m-%d-%H-%M-%S-%f')            
             self.media_link = 'https://%s.blob.core.windows.net/%s/%s-%s-%s-0.vhd' % (self.account,
                                                                                       self.container,
@@ -1559,7 +1556,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 pub_config['docker']['port'] = self.docker_port
                 pub_config['docker']['options'] = self.docker_options
                 pri_config['certs'] = dict()
-                pri_config['compose'] = dict()
+                
+                pri_config['compose'] = {'bind': {'image': 'ab77/bind',
+                                                  'ports': ['53:53/udp'],
+                                                  'volumes': ['/opt/netflix-proxy/data:/data']},
+                                         'sniproxy': {'image': 'ab77/sniproxy',
+                                                      'net': 'host',
+                                                      'volumes': ['/opt/netflix-proxy/data:/data']}}
 
                 try:
                     with open(self.docker_ca_certificate, 'rb') as cf:
@@ -1709,7 +1712,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
             self.network = self.get_params(key='network', params=arg, default=None)
             self.subnet = self.get_params(key='subnet', params=arg, default=None)
-            if isinstance(self.subnet, list): self.subnet = self.subnet[0]
+#            if isinstance(self.subnet, list): self.subnet = self.subnet[0]
             self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)
             self.label = self.get_params(key='label', params=arg, default=self.name)
             self.availset = self.get_params(key='availset', params=arg, default=None)
@@ -1718,7 +1721,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.size = self.get_params(key='size', params=arg, default=self.default_size)
             self.username = self.get_params(key='username', params=arg, default=self.default_user_name)        
             self.eps = self.get_params(key='eps', params=arg, default=self.default_endpoints)
-##            self.rextrs = self.get_params(key='rextrs', params=arg, default=None)
             self.extension = self.get_params(key='extension', params=arg, default=None)
             self.certificate = self.get_params(key='certificate', params=arg, default=self.default_certificate)
             self.algorithm = self.get_params(key='algorithm', params=arg, default=self.default_algorithm)
@@ -1750,11 +1752,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             net_config = ConfigurationSet()
             net_config.configuration_set_type = 'NetworkConfiguration'
-            subnet = Subnet()
-            subnet.name = self.subnet           
-            subnets = Subnets()
-            subnets.subnets.append(subnet.name)
-            net_config.subnet_names = subnets
+            net_config.subnet_names = self.subnet
+#            subnet = Subnet()
+#            subnet.name = self.subnet
+#            subnets = Subnets()
+#            subnets.subnets = subnet
+#            net_config.subnet_names = subnets.subnets            
            
             endpoints = []                        
             if self.os in ['Windows']:
@@ -1777,10 +1780,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                                    local_port=ep['LocalPort'],
                                                                    load_balanced_endpoint_set_name=None,
                                                                    enable_direct_server_return=False))                    
-                for endpoint in endpoints:
-                    net_config.input_endpoints.input_endpoints.append(endpoint)
-
-            endpoints = []                
+                    eps = ConfigurationSetInputEndpoints()
+                    eps.input_endpoints = endpoints
+                    net_config.input_endpoints = eps
+               
             if self.os in ['Linux']:
                 if self.disable_pwd_auth:
                     self.password = None
@@ -1812,10 +1815,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                                    local_port=ep['LocalPort'],
                                                                    load_balanced_endpoint_set_name=None,
                                                                    enable_direct_server_return=False))
-                for endpoint in endpoints:
-                    net_config.input_endpoints.input_endpoints.append(endpoint)
+                    eps = ConfigurationSetInputEndpoints()
+                    eps.input_endpoints = endpoints
+                    net_config.input_endpoints = eps
                 
-            self.net_config = net_config            
+            self.net_config = net_config
+            
             ts = mkdate(datetime.now(), '%Y-%m-%d-%H-%M-%S-%f')            
             self.media_link = 'https://%s.blob.core.windows.net/%s/%s-%s-%s-0.vhd' % (self.account,
                                                                                       self.container,
@@ -1845,7 +1850,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         rextrs.append(az.build_docker_resource_extension(arg))
                 self.rextrs = self.build_resource_extensions_xml_from_dict(rextrs=rextrs)
             else:
-                self.rextrs = None
+                self.rextrs = self.get_params(key='rextrs', params=arg, default=None)
             
             if verbose: pprint.pprint(self.__dict__)            
 
@@ -4600,7 +4605,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 self.size = self.get_params(key='size', params=arg, default=None)
                 self.availset = self.get_params(key='availset', params=arg, default=None)
                 self.subnet = self.get_params(key='subnet', params=arg, default=role['configuration_sets']['configuration_sets'][0]['subnet_names'])
-                if isinstance(self.subnet, list): self.subnet = self.subnet[0]
                 self.rextrs = self.get_params(key='rextrs', params=arg, default=None)
                 self.eps = self.get_params(key='eps', params=arg, default=None)
                 if isinstance(self.eps, list): self.subnet = self.eps[0]                
@@ -4616,12 +4620,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             net_config.configuration_set_type = 'NetworkConfiguration'
 
             if self.subnet:
-                subnet = Subnet()
-                subnet.name = self.subnet
-                subnets = Subnets()
-                subnets.subnets.append(subnet.name)
-                net_config.subnet_names = subnets
-                net_config.end = subnets
+                net_config.subnet_names = self.subnet
 
             if self.eps:
                 endpoints = []            
@@ -4633,8 +4632,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                                    load_balanced_endpoint_set_name=ep['load_balanced_endpoint_set_name'],
                                                                    enable_direct_server_return=ep['enable_direct_server_return'],
                                                                    idle_timeout_in_minutes=ep['idle_timeout_in_minutes']))
-                for endpoint in endpoints:
-                    net_config.input_endpoints.input_endpoints.append(endpoint)
+                    eps = ConfigurationSetInputEndpoints()
+                    eps.input_endpoints = endpoints
+                    net_config.input_endpoints = eps
             else:
                 self.eps = role['configuration_sets']['configuration_sets'][0]['input_endpoints']['input_endpoints']
 
