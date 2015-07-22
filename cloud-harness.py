@@ -63,7 +63,13 @@ try:
 except ImportError:
     sys.stderr.write('ERROR: Python module "PyCrypto" not found, please run "pip install pycrypto".\n')
     sys.exit()
-
+    
+try:
+    import yaml
+except ImportError:
+    sys.stderr.write('ERROR: Python module "PyYAML" not found, please run "pip install pyyaml".\n')
+    sys.exit()
+    
 def mkdate(dt, format):
     return datetime.strftime(dt, format)
 
@@ -207,6 +213,8 @@ def args():
     azure.add_argument('--docker_server_certificate', type=str, required=False, default=AzureCloudClass.default_docker_server_certificate, help='Docker server certificate for TSL configuration (default: %s)' % AzureCloudClass.default_docker_server_certificate)
     azure.add_argument('--docker_server_key', type=str, required=False, default=AzureCloudClass.default_docker_server_key, help='Docker server private key for TSL configuration (default: %s)' % AzureCloudClass.default_docker_server_key)
     azure.add_argument('--docker_registry_server', type=str, required=False, help='Docker registry server (default: DockerHub)')
+    azure.add_argument('--docker_compose', type=str, required=False, default=AzureCloudClass.default_docker_compose, help='Docker compose.yaml file (default: %s)' % AzureCloudClass.default_docker_compose)
+    
     args = parser.parse_args()
     logger(message=str(args))
     return args
@@ -215,6 +223,9 @@ def logger(message=None):
     if BaseCloudHarnessClass.debug: sys.stderr.write('DEBUG %s\n' % repr(message))
     if BaseCloudHarnessClass.log: logging.info('%s\n' % repr(message))         
 
+def generate_random_password(length=11):
+    return ''.join(SystemRandom().choice(string.ascii_lowercase + string.digits + string.ascii_uppercase) for _ in range(length))
+    
 class BaseCloudHarnessClass():
     log = False
     debug = True
@@ -484,6 +495,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
     default_key_type = 'Primary'
     default_mode = 'auto'
     default_blobtype = 'page'
+    default_docker_compose = 'compose.yaml'
 
     def __init__(self, subscription_id=None, management_certificate=None):
         self.subscription_id = subscription_id or self.default_subscription_id
@@ -582,16 +594,16 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)
             self.label = self.get_params(key='label', params=arg, default=self.name)
             self.availset = self.get_params(key='availset', params=arg, default=None)
-            self.password = self.get_params(key='password', params=arg, default=''.join(SystemRandom().choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(11)))
+            self.password = self.get_params(key='password', params=arg, default=generate_random_password(length=11))
             self.slot = self.get_params(key='slot', params=arg, default=self.default_deployment_slot)            
             self.size = self.get_params(key='size', params=arg, default=self.default_size)
             self.username = self.get_params(key='username', params=arg, default=self.default_user_name)        
             self.eps = self.get_params(key='eps', params=arg, default=self.default_endpoints)
-            self.rextrs = self.get_params(key='rextrs', params=arg, default=None)
+            self.extension = self.get_params(key='extension', params=arg, default=None)
             self.certificate = self.get_params(key='certificate', params=arg, default=self.default_certificate)
             self.algorithm = self.get_params(key='algorithm', params=arg, default=self.default_algorithm)
             self.async = self.get_params(key='async', params=arg, default=None)    
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)                
+            readonly = self.get_params(key='readonly', params=arg, default=None)                
             self.ssh_auth = self.get_params(key='ssh_auth', params=arg, default=None)                
             self.disable_pwd_auth = self.get_params(key='disable_pwd_auth', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
@@ -695,10 +707,27 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                  disk_name=None,
                                                  os=None,
                                                  remote_source_image_link=None)
+
+            if self.extension:
+                rextrs = list()            
+                for extension in self.extension:
+                    if extension == 'ChefClient':
+                        rextrs.append(self.build_chefclient_resource_extension(arg))                
+                    if extension == 'CustomScript':
+                        rextrs.append(az.build_customscript_resource_extension(arg))
+                    if extension == 'VMAccessAgent':
+                        rextrs.append(az.build_vmaccess_resource_extension(arg))
+                    if extension == 'OSPatching':
+                        rextrs.append(az.build_ospatching_resource_extension(arg))
+                    if extension == 'DockerExtension':
+                        rextrs.append(az.build_docker_resource_extension(arg))
+                self.rextrs = self.build_resource_extensions_xml_from_dict(rextrs=rextrs)
+            else:
+                self.rextrs = self.get_params(key='rextrs', params=args, default=None)
             
             if verbose: pprint.pprint(self.__dict__)            
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     d = dict()
                     result = self.sms.add_role(self.service, self.deployment, self.name,
@@ -748,7 +777,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.host_caching = self.get_params(key='host_caching', params=arg, default=self.default_host_caching)
             self.disk_size = self.get_params(key='disk_size', params=arg, default=self.default_disk_size)            
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             ts = mkdate(datetime.now(), '%Y-%m-%d-%H-%M-%S-%f')
@@ -770,7 +799,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                                                            self.lun)
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     result = self.sms.add_data_disk(self.service, self.deployment, self.name, self.lun,
                                                     host_caching=self.host_caching,
@@ -811,14 +840,14 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.label = self.get_params(key='label', params=arg, default=self.name)
             self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
             self.container = self.get_params(key='container', params=arg, default='images')       
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             self.media_link = 'https://%s.blob.core.windows.net/%s/%s' % (self.account, self.container, self.blob)
             
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     return self.sms.add_disk(None, self.label, self.media_link, self.name, self.os)
                 except (WindowsAzureConflictError) as e:
@@ -842,7 +871,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if isinstance(self.dns, list): self.dns = self.dns[0]
             self.ipaddr = self.get_params(key='ipaddr', params=arg, default=None)
             if isinstance(self.ipaddr, list): self.ipaddr = self.ipaddr[0]
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
 
@@ -850,7 +879,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             
             result = self.sms.add_dns_server(self.service, self.deployment, self.dns, self.ipaddr)        
             if result is not None:
-                if not self.readonly:
+                if not readonly:
                     d = dict()
                     operation = self.sms.get_operation_status(result.request_id)
                     d['result'] = result.__dict__
@@ -906,7 +935,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             
             self.algorithm = self.get_params(key='algorithm', params=arg, default=self.default_algorithm)
             self.certificate = self.get_params(key='certificate', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             result = self.get_pub_key_and_thumbprint_from_x509_cert(certificate=self.certificate, algorithm=self.algorithm)
@@ -916,7 +945,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 result = self.sms.add_management_certificate(self.public_key, self.thumbprint, self.certificate)     
                 if result is not None:
                         d = dict()
@@ -946,12 +975,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.key = self.get_storage_account_keys({'account': self.account,
                                                       'verbose': False})['storage_service_keys']['primary']
             self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)       
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
            
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:                
+            if not readonly:                
                 blob_service = BlobService(self.account, self.key)                
                 with open(self.blob) as f:
                     result = blob_service.delete_blob(self,
@@ -982,12 +1011,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                       'verbose': False})['storage_service_keys']['primary']
             self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)
             self.blobtype = self.get_params(key='blobtype', params=arg, default=self.default_blobtype)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
            
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:                
+            if not readonly:                
                 blob_service = BlobService(self.account, self.key)                
                 with open(self.blob) as f:
                     if self.blobtype == 'page':
@@ -1026,7 +1055,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
             self.container = self.get_params(key='container', params=arg, default='images')       
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             self.media_link = 'https://%s.blob.core.windows.net/%s/%s' % (self.account,
@@ -1034,7 +1063,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                                           self.blob)
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     result = self.sms.add_os_image(self.label, self.media_link, self.name, self.os)
                     d = dict()
@@ -1064,7 +1093,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.service = self.get_params(key='service', params=arg, default=None)
             self.certificate = self.get_params(key='certificate', params=arg, default=self.default_certificate)
             self.password = self.get_params(key='password', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
@@ -1088,7 +1117,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 result = self.sms.add_service_certificate(self.service, self.cert_data,
                                                           cert_format, self.password)
                 if result is not None:
@@ -1176,7 +1205,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             return False 
 
     def build_resource_extension_dict(self, **kwargs):
-        try:
+        try:            
             if not kwargs: return False
             arg = self.verify_params(method=inspect.stack()[0][3], params=kwargs)
             if not arg: return False
@@ -1296,14 +1325,15 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.os = self.get_params(key='os', params=arg, default=None)            
             self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)            
             self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)
-                   
+
             pub_config = dict()
             pub_config_key = 'CustomScriptExtensionPublicConfigParameter'
             if self.os == 'Windows':                
                 self.script = self.get_params(key='script', params=arg, default=self.default_windows_customscript_name)
-                result = self.upload_blob({'blob': self.script, 'account': self.account,
-                                           'blobtype': 'block', 'verbose': True})
-                pprint.pprint(result)
+
+                self.upload_blob({'blob': self.script, 'account': self.account,
+                                  'blobtype': 'block', 'verbose': True})
+
                 pub_config['fileUris'] = ['%s' % self.generate_signed_blob_url(account=self.account,
                                                                                container=self.container,
                                                                                script=self.script)]
@@ -1322,9 +1352,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 pri_config_key = 'CustomScriptExtensionPrivateConfigParameter'
                 pri_config = dict()
                 self.script = self.get_params(key='script', params=arg, default=self.default_linux_customscript_name)
-                result = self.upload_blob({'blob': self.script, 'account': self.account,
-                                           'blobtype': 'block', 'verbose': True})
-                pprint.pprint(result)
+
+                self.upload_blob({'blob': self.script, 'account': self.account,
+                                  'blobtype': 'block', 'verbose': True})
+
                 self.extension = 'CustomScriptForLinux'
                 self.publisher = 'Microsoft.OSTCExtensions'
                 rexts = self.list_resource_extension_versions({'publisher': self.publisher, 'extension': self.extension, 'verbose': False})
@@ -1513,9 +1544,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
 
-    def build_dsc_resource_extension(self):
-        pass
-
     def build_docker_resource_extension(self, *args):
         try:
             if not args: return False
@@ -1533,6 +1561,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.docker_ca_certificate = self.get_params(key='docker_ca_certificate', params=arg, default=self.default_docker_ca_certificate)
             self.docker_server_certificate = self.get_params(key='docker_server_certificate', params=arg, default=self.default_docker_server_certificate)
             self.docker_server_key = self.get_params(key='docker_server_key', params=arg, default=self.default_docker_server_key)
+            self.docker_compose = self.get_params(key='docker_compose', params=arg, default=self.default_docker_compose)
 
             pub_config = dict()
             pri_config = dict() 
@@ -1556,14 +1585,15 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 pub_config['docker']['port'] = self.docker_port
                 pub_config['docker']['options'] = self.docker_options
                 pri_config['certs'] = dict()
-                
-                pri_config['compose'] = {'bind': {'image': 'ab77/bind',
-                                                  'ports': ['53:53/udp'],
-                                                  'volumes': ['/opt/netflix-proxy/data:/data']},
-                                         'sniproxy': {'image': 'ab77/sniproxy',
-                                                      'net': 'host',
-                                                      'volumes': ['/opt/netflix-proxy/data:/data']}}
 
+                try:
+                    with open(self.docker_compose, 'rb') as f:
+                        self.compose = json.loads(json.dumps(yaml.load(f.read())))
+                        pri_config['compose'] = self.compose
+                except IOError:
+                    logger('%s: unable to read %s' % (inspect.stack()[0][3], self.docker_compose))
+                    pri_config['compose'] = None
+                
                 try:
                     with open(self.docker_ca_certificate, 'rb') as cf:
                         docker_ca_certificate = b64encode(cf.read())
@@ -1604,6 +1634,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
+
+    def build_dsc_resource_extension(self):
+        pass
     
     def build_octopusdeploy_resource_extension(self):
         pass
@@ -1678,12 +1711,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.description = self.get_params(key='description', params=arg, default=None)
             self.location = self.get_params(key='location', params=arg, default=self.default_location)
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 return self.sms.create_affinity_group(name=self.name, label=self.label,
                                                       location=self.location, description=self.description)
             else:
@@ -1692,7 +1725,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
 
-    def create_virtual_machine_deployment(self, *args):
+    def create_virtual_machine_deployment(self, *args):        
         try:
             if not args: return False
             arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
@@ -1712,11 +1745,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)
             self.network = self.get_params(key='network', params=arg, default=None)
             self.subnet = self.get_params(key='subnet', params=arg, default=None)
-#            if isinstance(self.subnet, list): self.subnet = self.subnet[0]
             self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)
             self.label = self.get_params(key='label', params=arg, default=self.name)
             self.availset = self.get_params(key='availset', params=arg, default=None)
-            self.password = self.get_params(key='password', params=arg, default=''.join(SystemRandom().choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(11)))
+            self.password = self.get_params(key='password', params=arg, default=generate_random_password(length=11))
             self.slot = self.get_params(key='slot', params=arg, default=self.default_deployment_slot)            
             self.size = self.get_params(key='size', params=arg, default=self.default_size)
             self.username = self.get_params(key='username', params=arg, default=self.default_user_name)        
@@ -1725,11 +1757,11 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.certificate = self.get_params(key='certificate', params=arg, default=self.default_certificate)
             self.algorithm = self.get_params(key='algorithm', params=arg, default=self.default_algorithm)
             self.async = self.get_params(key='async', params=arg, default=None)    
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)                
             self.ssh_auth = self.get_params(key='ssh_auth', params=arg, default=None)                
             self.disable_pwd_auth = self.get_params(key='disable_pwd_auth', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
- 
+            readonly = self.get_params(key='readonly', params=arg, default=None)              
+
             if self.os == 'Windows':
                 self.custom_data_file = self.get_params(key='custom_data_file', params=arg, default=self.default_windows_custom_data_file)
                 try:
@@ -1753,11 +1785,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
             net_config = ConfigurationSet()
             net_config.configuration_set_type = 'NetworkConfiguration'
             net_config.subnet_names = self.subnet
-#            subnet = Subnet()
-#            subnet.name = self.subnet
-#            subnets = Subnets()
-#            subnets.subnets = subnet
-#            net_config.subnet_names = subnets.subnets            
            
             endpoints = []                        
             if self.os in ['Windows']:
@@ -1850,11 +1877,11 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         rextrs.append(az.build_docker_resource_extension(arg))
                 self.rextrs = self.build_resource_extensions_xml_from_dict(rextrs=rextrs)
             else:
-                self.rextrs = self.get_params(key='rextrs', params=arg, default=None)
+                self.rextrs = self.get_params(key='rextrs', params=args, default=None)
             
-            if verbose: pprint.pprint(self.__dict__)            
+            if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     d = dict()
                     result = self.sms.create_virtual_machine_deployment(self.service, self.deployment, self.slot,
@@ -1910,14 +1937,14 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                                                    'deployment': self.deployment,
                                                                                    'name': self.name,
                                                                                    'verbose': False})['os_virtual_hard_disk']['os'])
-            self.password = self.get_params(key='password', params=arg, default=''.join(SystemRandom().choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(11)))
+            self.password = self.get_params(key='password', params=arg, default=generate_random_password(length=11))
             self.username = self.get_params(key='username', params=arg, default=self.default_user_name)        
             self.certificate = self.get_params(key='certificate', params=arg, default=self.default_certificate)
             self.algorithm = self.get_params(key='algorithm', params=arg, default=self.default_algorithm)
             self.ssh_auth = self.get_params(key='ssh_auth', params=arg, default=None)                
             self.disable_pwd_auth = self.get_params(key='disable_pwd_auth', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)    
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)                
+            readonly = self.get_params(key='readonly', params=arg, default=None)                
             verbose = self.get_params(key='verbose', params=arg, default=None)
  
             if self.os == 'Windows':
@@ -1980,7 +2007,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     d = dict()                    
                     result = self.sms.capture_role(self.service, self.deployment, self.name,
@@ -2022,7 +2049,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.family = self.get_params(key='family', params=arg, default=None)
             self.size = self.get_params(key='size', params=arg, default=self.default_size)            
             self.async = self.get_params(key='async', params=arg, default=None)    
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)                
+            readonly = self.get_params(key='readonly', params=arg, default=None)                
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             options = CaptureRoleAsVMImage()
@@ -2037,7 +2064,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     d = dict()                    
                     result = self.sms.capture_vm_image(self.service, self.deployment, self.name, self.options)
@@ -2079,7 +2106,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.start_deployment = self.get_params(key='start_deployment', params=arg, default=self.default_start_deployment)
             self.ignore_warinings = self.get_params(key='ignore_warinings', params=arg, default=self.default_ignore_warinings)
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
             
             try:
@@ -2092,7 +2119,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     d = dict()
                     result = self.sms.create_deployment(self.service, self.slot, self.name,
@@ -2188,7 +2215,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.vnetaddr = self.get_params(key='vnetaddr', params=arg, default=None)
 
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if self.location:
@@ -2206,7 +2233,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 d = dict()
                 if not self.async:                  
                     d['result'] = self.perform_put(path=self.path, body=self.body, content_type='text/plain')
@@ -2239,7 +2266,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                        default=self.get_storage_account_properties({'account': self.account,
                                                                                                     'verbose': False})['extended_properties'])
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if self.group: self.location = None
@@ -2249,7 +2276,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     d = dict()
                     result = self.sms.create_hosted_service(self.service, self.label,
@@ -2284,12 +2311,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.label = self.get_params(key='label', params=arg, default=self.ipaddr)
             self.location = self.get_params(key='location', params=arg, default=self.default_location)
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     d = dict()
                     result = self.sms.create_reserved_ip_address(self.ipaddr, label=self.label, location=self.location)
@@ -2324,7 +2351,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.location = self.get_params(key='location', params=arg, default=self.default_location)
             self.extended_properties = self.get_params(key='extended_properties', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if self.group: self.location = None
@@ -2334,7 +2361,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     d = dict()
                     result = self.sms.create_storage_account(self.account, self.description, self.label,
@@ -2384,7 +2411,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.show_in_gui = self.get_params(key='show_in_gui', params=arg, default=None)
             self.privacy_uri = self.get_params(key='privacy_uri', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)    
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)                
+            readonly = self.get_params(key='readonly', params=arg, default=None)                
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             vm_image = VMImage()
@@ -2428,7 +2455,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     d = dict()                    
                     result = self.sms.create_vm_image(self.vm_image)
@@ -2476,12 +2503,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.name = self.get_params(key='name', params=arg, default=None)
             if isinstance(self.name, list): self.name = self.name[0]
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 return self.sms.delete_affinity_group(self.name)
             else:
                 logger('%s: limited to read-only operations' % inspect.stack()[0][3])
@@ -2500,7 +2527,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.service = self.get_params(key='service', params=arg, default=None)     
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             self.delete_disks = self.get_params(key='delete_disks', params=arg, default=None)
             self.delete_vhds = self.get_params(key='delete_vhds', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
@@ -2513,7 +2540,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 pprint.pprint(self.__dict__)
                 pprint.pprint(d)
 
-            if not self.readonly:
+            if not readonly:
                 result = self.sms.delete_role(self.service, self.deployment, self.name)
                 d['result'] = result.__dict__
                 if not self.async:
@@ -2550,12 +2577,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
             
             self.disk = self.get_params(key='disk', params=arg, default=None)
             self.delete_vhds = self.get_params(key='delete_vhds', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
 
                 @retry(WindowsAzureConflictError, tries=5, delay=15, backoff=2, cdata='method=%s()' % inspect.stack()[0][3])
                 def delete_disk_retry():
@@ -2578,13 +2605,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.dns = self.get_params(key='dns', params=arg, default=None)
             if isinstance(self.dns, list): self.dns = self.dns[0]
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
             
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 result = self.sms.delete_dns_server(self.service, self.deployment, self.dns)        
                 if result is not None:
                         d = dict()
@@ -2612,7 +2639,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.delete_disks = self.get_params(key='delete_disks', params=arg, default=None)
             self.delete_vhds = self.get_params(key='delete_vhds', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             self.complete = False
@@ -2620,7 +2647,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 result = self.sms.delete_hosted_service(self.service, self.complete)        
                 if result is not None:
                     d = dict()
@@ -2646,12 +2673,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             self.thumbprint = self.get_params(key='thumbprint', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
             
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 result = self.sms.delete_management_certificate(self.thumbprint)        
                 if result is not None:
                     d = dict()
@@ -2679,12 +2706,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if isinstance(self.name, list): self.name = self.name[0]
             self.delete_vhds = self.get_params(key='delete_vhds', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     result = self.sms.delete_os_image(self.name, delete_vhd=self.delete_vhds)
                     d = dict()
@@ -2714,12 +2741,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.ipaddr = self.get_params(key='ipaddr', params=arg, default=None)
             if isinstance(self.ipaddr, list): self.ipaddr = self.ipaddr[0]
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     result = self.sms.delete_reserved_ip_address(self.ipaddr)
                     d = dict()
@@ -2750,12 +2777,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.name = self.get_params(key='name', params=arg, default=None)            
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     result = self.sms.delete_role_instances(self.service, self.deployment, self.name)
                     d = dict()
@@ -2786,12 +2813,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.thumbprint = self.get_params(key='thumbprint', params=arg, default=None)
             self.algorithm = self.get_params(key='algorithm', params=arg, default=self.default_algorithm)
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
             
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 result = self.sms.delete_service_certificate(self.service, self.algorithm, self.thumbprint)        
                 if result is not None:
                     d = dict()
@@ -2817,12 +2844,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             self.account = self.get_params(key='account', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
             
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 result = self.sms.delete_storage_account(self.account)        
                 if result is not None:
                     d = dict()
@@ -2850,12 +2877,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if isinstance(self.name, list): self.name = self.name[0]
             self.delete_vhds = self.get_params(key='delete_vhds', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     result = self.sms.delete_vm_image(self.name, delete_vhd=self.delete_vhds)
                     d = dict()
@@ -2889,12 +2916,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.lun = self.get_params(key='lun', params=arg, default=None)
             self.delete_vhds = self.get_params(key='delete_vhds', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
 
                 @retry(WindowsAzureConflictError, tries=5, delay=15, backoff=2, cdata='method=%s()' % inspect.stack()[0][3])
                 def delete_data_disk_retry():
@@ -2927,17 +2954,17 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.name = self.get_params(key='name', params=arg, default=None)
             if isinstance(self.name, list): self.name = self.name[0]
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
             self.delete_vhds = self.get_params(key='delete_vhds', params=arg, default=None)
             
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 result = self.sms.delete_deployment(self.service, self.deployment, delete_vhds=self.delete_vhds)        
                 if result is not None:
-                    if not self.readonly:
+                    if not readonly:
                         d = dict()
                         operation = self.sms.get_operation_status(result.request_id)
                         d['result'] = result.__dict__
@@ -3591,12 +3618,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.name = self.get_params(key='name', params=arg, default=None)
             if isinstance(self.name, list): self.name = self.name[0]
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     result = self.sms.rebuild_role_instance(self.service, self.deployment, self.name)
                     d = dict()
@@ -3626,12 +3653,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.account = self.get_params(key='account', params=arg, default=None)
             self.key_type = self.get_params(key='key_type', params=arg, default=self.default_key_type)
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 storage = self.sms.regenerate_storage_account_keys(self.account, self.key_type)
                 return self.dict_from_response_obj(storage)
             else:
@@ -3651,12 +3678,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.name = self.get_params(key='name', params=arg, default=None)
             if isinstance(self.name, list): self.name = self.name[0]
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     result = self.sms.reimage_role_instance(self.service, self.deployment, self.name)
                     d = dict()
@@ -3688,12 +3715,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.mode = self.get_params(key='mode', params=arg, default=self.default_mode)
             self.force = self.get_params(key='force', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     result = self.sms.rollback_update_or_upgrade(self.service, self.deployment, self.mode, self.force)
                     d = dict()
@@ -3724,16 +3751,16 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.name = self.get_params(key='name', params=arg, default=None)
             if isinstance(self.name, list): self.name = self.name[0]
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
             
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 result = self.sms.reboot_role_instance(self.service, self.deployment, self.name)       
                 if result is not None:
-                    if not self.readonly:
+                    if not readonly:
                         d = dict()
                         operation = self.sms.get_operation_status(result.request_id)
                         d['result'] = result.__dict__
@@ -3761,16 +3788,16 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.name = self.get_params(key='name', params=arg, default=None)
             if isinstance(self.name, list): self.name = self.name[0]
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
             
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 result = self.sms.start_role(self.service, self.deployment, self.name)  
                 if result is not None:
-                    if not self.readonly:
+                    if not readonly:
                         d = dict()
                         operation = self.sms.get_operation_status(result.request_id)
                         d['result'] = result.__dict__
@@ -3797,13 +3824,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.service = self.get_params(key='service', params=arg, default=None)
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.name = self.get_params(key='name', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
             
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 result = self.sms.start_roles(self.service, self.deployment, self.name)
                 if result is not None:
                     d = dict()
@@ -3831,16 +3858,16 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.name = self.get_params(key='name', params=arg, default=None)
             if isinstance(self.name, list): self.name = self.name[0]
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
             
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 result = self.sms.restart_role(self.service, self.deployment, self.name) 
                 if result is not None:
-                    if not self.readonly:
+                    if not readonly:
                         d = dict()
                         operation = self.sms.get_operation_status(result.request_id)
                         d['result'] = result.__dict__
@@ -3891,16 +3918,16 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.name = self.get_params(key='name', params=arg, default=None)
             if isinstance(self.name, list): self.name = self.name[0]
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
             
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 result = self.sms.shutdown_role(self.service, self.deployment, self.name) 
                 if result is not None:
-                    if not self.readonly:
+                    if not readonly:
                         d = dict()
                         operation = self.sms.get_operation_status(result.request_id)
                         d['result'] = result.__dict__
@@ -3927,13 +3954,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.service = self.get_params(key='service', params=arg, default=None)
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.name = self.get_params(key='name', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 result = self.sms.shutdown_roles(self.service, self.deployment, self.name)
                 if result is not None:
                     d = dict()
@@ -3960,16 +3987,16 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.service = self.get_params(key='service', params=arg, default=None)
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.production_deployment = self.get_params(key='production_deployment', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
             
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 result = self.sms.swap_deployment(self.service, self.production_deployment, self.deployment) 
                 if result is not None:
-                    if not self.readonly:
+                    if not readonly:
                         d = dict()
                         operation = self.sms.get_operation_status(result.request_id)
                         d['result'] = result.__dict__
@@ -4106,9 +4133,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if verbose: pprint.pprint(self.__dict__)
 
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             
-            if not self.readonly:
+            if not readonly:
                 d = dict()
                 if not self.async:                  
                     d['result'] = self.perform_put(path=path, body=body)
@@ -4244,7 +4271,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.start_deployment = self.get_params(key='start_deployment', params=arg, default=self.default_start_deployment)
             self.ignore_warinings = self.get_params(key='ignore_warinings', params=arg, default=self.default_ignore_warinings)
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
             
             try:
@@ -4257,7 +4284,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     d = dict()
                     result = self.sms.upgrade_deployment(self.service, self.deployment, self.mode,
@@ -4298,7 +4325,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                                                                     'verbose': False})['extended_properties'])
             self.ignore_warinings = self.get_params(key='ignore_warinings', params=arg, default=self.default_ignore_warinings)
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
             
             try:
@@ -4311,7 +4338,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     d = dict()
                     result = self.sms.change_deployment_configuration(self.service, self.deployment, self.configuration,
@@ -4346,12 +4373,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.label = self.get_params(key='label', params=arg, default=self.name)
             self.description = self.get_params(key='description', params=arg, default=None)       
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 return self.sms.update_affinity_group(self.name, self.label, self.description)
             else:
                 logger('%s: limited to read-only operations' % inspect.stack()[0][3])
@@ -4376,7 +4403,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.host_caching = self.get_params(key='host_caching', params=arg, default=self.default_host_caching)
             self.disk_size = self.get_params(key='disk_size', params=arg, default=self.default_disk_size)            
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             self.current_lun = len(self.get_disk_by_role_name({'service': self.service,
@@ -4385,7 +4412,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                                'verbose': False})) - 1
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     result = self.sms.update_data_disk(self.service, self.deployment, self.name, self.current_lun,
                                                        host_caching=self.host_caching,
@@ -4422,12 +4449,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.deployment = self.get_params(key='deployment', params=arg, default=self.name)
             self.deployment_status = self.get_params(key='deployment_status', params=arg, default=None)       
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 return self.sms.update_deployment_status(self.service, self.deployment, self.deployment_status)
             else:
                 logger('%s: limited to read-only operations' % inspect.stack()[0][3])
@@ -4443,12 +4470,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             self.disk = self.get_params(key='disk', params=arg, default=None)
             self.label = self.get_params(key='label', params=arg, default=self.disk)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     return self.sms.update_disk(self.disk, has_operating_system=None, label=self.label,
                                                 media_link=None, name=None, os=None)
@@ -4473,7 +4500,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if isinstance(self.dns, list): self.dns = self.dns[0]
             self.ipaddr = self.get_params(key='ipaddr', params=arg, default=None)
             if isinstance(self.ipaddr, list): self.ipaddr = self.ipaddr[0]
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
 
@@ -4481,7 +4508,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             
             result = self.sms.update_dns_server(self.service, self.deployment, self.dns, self.ipaddr)        
             if result is not None:
-                if not self.readonly:
+                if not readonly:
                     d = dict()
                     operation = self.sms.get_operation_status(result.request_id)
                     d['result'] = result.__dict__
@@ -4512,7 +4539,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.extended_properties = self.get_params(key='description', params=arg,
                                                        default=self.get_storage_account_properties({'account': self.account,
                                                                                                     'verbose': False})['extended_properties'])
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
 
@@ -4522,7 +4549,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                     description=self.description,
                                                     extended_properties=self.extended_properties)        
             if result is not None:
-                if not self.readonly:
+                if not readonly:
                     d = dict()
                     operation = self.sms.get_operation_status(result.request_id)
                     d['result'] = result.__dict__
@@ -4556,7 +4583,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.os = self.get_params(key='os', params=arg, default=None)
 
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             self.media_link = 'https://%s.blob.core.windows.net/%s/%s' % (self.account,
@@ -4564,7 +4591,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                                           self.blob)
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     result = self.sms.update_os_image(self.name, self.label, self.media_link,
                                                       self.blob, self.os)
@@ -4606,12 +4633,11 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 self.availset = self.get_params(key='availset', params=arg, default=None)
                 self.subnet = self.get_params(key='subnet', params=arg, default=role['configuration_sets']['configuration_sets'][0]['subnet_names'])
                 self.rextrs = self.get_params(key='rextrs', params=arg, default=None)
-                self.eps = self.get_params(key='eps', params=arg, default=None)
-                if isinstance(self.eps, list): self.subnet = self.eps[0]                
+                self.eps = self.get_params(key='eps', params=arg, default=role['configuration_sets']['configuration_sets'][0]['input_endpoints']['input_endpoints'])
                 self.os_disk = self.get_params(key='os_disk', params=arg, default=None)
                 self.data_disks = self.get_params(key='data_disk', params=arg, default=None)
                 self.async = self.get_params(key='async', params=arg, default=None) 
-                self.readonly = self.get_params(key='readonly', params=arg, default=None)                
+                readonly = self.get_params(key='readonly', params=arg, default=None)                
             else:
                 logger('%s: unable to retrieve properties for role %s' % (inspect.stack()[0][3], self.name))
                 return False
@@ -4635,18 +4661,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     eps = ConfigurationSetInputEndpoints()
                     eps.input_endpoints = endpoints
                     net_config.input_endpoints = eps
-            else:
-                self.eps = role['configuration_sets']['configuration_sets'][0]['input_endpoints']['input_endpoints']
 
             self.net_config = net_config
 
-##            self.epacls = self.build_epacls_dict_from_xml(service=self.service,
-##                                                          deployment=self.deployment,
-##                                                          name=self.name)
-            
             if verbose: pprint.pprint(self.__dict__)
             
-            if not self.readonly:
+            if not readonly:
                 try:
                     d = dict()
                     result = self.sms.update_role(self.service, self.deployment, self.name,
@@ -4666,13 +4686,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         self.wait_for_vm_provisioning_completion({'service': self.service,
                                                                   'deployment': self.deployment,
                                                                   'name': self.name})
-                        
-##                        pprint.pprint(self.set_epacls({'service': self.service,
-##                                                       'deployment': self.deployment,
-##                                                       'name': self.name,
-##                                                       'epacls': self.epacls,
-##                                                       'subnet': self.subnet}))
-                        
                         logger('%s: network ACLs cleared, use --action set_epacls to update' % inspect.stack()[0][3])
                         return d
                     else:
@@ -4698,12 +4711,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.description = self.get_params(key='description', params=arg, default=None)
             self.extended_properties = self.get_params(key='extended_properties', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:                
+            if not readonly:                
                 return self.sms.update_storage_account(self.account, self.description, self.label,
                                                        geo_replication_enabled=None,
                                                        extended_properties=self.extended_properties,
@@ -4739,7 +4752,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.show_in_gui = self.get_params(key='show_in_gui', params=arg, default=None)
             self.privacy_uri = self.get_params(key='privacy_uri', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)    
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)                
+            readonly = self.get_params(key='readonly', params=arg, default=None)                
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             vm_image = VMImage()
@@ -4783,7 +4796,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 try:
                     d = dict()                    
                     result = self.sms.create_vm_image(self.name, self.vm_image)
@@ -4865,12 +4878,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.upgrade_domain = self.get_params(key='upgrade_domain', params=arg, default=None)
             self.async = self.get_params(key='async', params=arg, default=None)
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
                 return self.sms.walk_upgrade_domain(self.service, self.deployment, self.upgrade_domain)
             else:
                 logger('%s: limited to read-only operations' % inspect.stack()[0][3])
@@ -4888,12 +4901,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.deployment = self.get_params(key='deployment', params=arg, default=None)
             self.name = self.get_params(key='name', params=arg, default=None)
             if isinstance(self.name, list): self.name = self.name[0]
-            self.readonly = self.get_params(key='readonly', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
 
-            if not self.readonly:
+            if not readonly:
 
                 @retry(AssertionError, tries=5, delay=15, backoff=2, cdata='method=%s()' % inspect.stack()[0][3])
                 def wait_for_vm_provisioning_completion_retry():                    
