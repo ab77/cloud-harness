@@ -260,6 +260,7 @@ class BaseCloudHarnessClass():
     default_docker_ca_certificate = None
     default_docker_server_certificate = None
     default_docker_server_key = None
+    default_docker_compose = None
     default_windows_customscript_name = None
     default_linux_customscript_name = None
     default_remote_subnets = None
@@ -287,7 +288,15 @@ class BaseCloudHarnessClass():
         proxy_host = dict(cp.items('AzureConfig'))['proxy_host']
         proxy_port = dict(cp.items('AzureConfig'))['proxy_port']
         ssl_verify = dict(cp.items('AzureConfig'))['ssl_verify']
+        default_storage_account = dict(cp.items('AzureConfig'))['storage_account']
+        default_storage_container = dict(cp.items('AzureConfig'))['storage_container']
+        default_windows_customscript_name = dict(cp.items('CustomScriptExtensionForWindows'))['windows_customscript_name']
+        default_windows_custom_data_file = dict(cp.items('WindowsConfiguration'))['windows_custom_data_file']
+        default_linux_customscript_name = dict(cp.items('CustomScriptExtensionForLinux'))['linux_customscript_name']
+        default_linux_custom_data_file = dict(cp.items('LinuxConfiguration'))['linux_custom_data_file']
         default_location = dict(cp.items('AzureConfig'))['location_name']
+        default_certificate = dict(cp.items('LinuxConfiguration'))['service_certificate']      
+        default_remote_subnets = cp.items('DefaultEndpointACL')
         default_chef_server_url = dict(cp.items('ChefClient'))['chef_server_url']
         default_chef_validation_client_name = dict(cp.items('ChefClient'))['chef_validation_client_name']
         default_chef_validation_key_file = dict(cp.items('ChefClient'))['chef_validation_key_file']
@@ -295,17 +304,7 @@ class BaseCloudHarnessClass():
         default_chef_autoupdate_client = dict(cp.items('ChefClient'))['chef_autoupdate_client']
         default_chef_delete_config = dict(cp.items('ChefClient'))['chef_delete_config']
         default_chef_ssl_verify_mode = dict(cp.items('ChefClient'))['chef_ssl_verify_mode']
-        default_chef_verify_api_cert = dict(cp.items('ChefClient'))['chef_verify_api_cert']        
-        default_windows_customscript_name = dict(cp.items('CustomScriptExtensionForWindows'))['windows_customscript_name']
-        default_linux_customscript_name = dict(cp.items('CustomScriptExtensionForLinux'))['linux_customscript_name']
-        default_remote_subnets = cp.items('DefaultEndpointACL')
-        default_certificate = dict(cp.items('LinuxConfiguration'))['service_certificate']      
-        default_linux_custom_data_file = dict(cp.items('LinuxConfiguration'))['linux_custom_data_file']
-        default_windows_custom_data_file = dict(cp.items('WindowsConfiguration'))['windows_custom_data_file']
-        default_storage_account = dict(cp.items('AzureConfig'))['storage_account']
-        default_storage_container = dict(cp.items('AzureConfig'))['storage_container']
-        default_patching_healthy_test_script = dict(cp.items('OSPatchingExtensionForLinux'))['patching_healthy_test_script']        
-        default_patching_idle_test_script = dict(cp.items('OSPatchingExtensionForLinux'))['patching_idle_test_script']
+        default_chef_verify_api_cert = dict(cp.items('ChefClient'))['chef_verify_api_cert']
         default_docker_port = dict(cp.items('DockerExtension'))['docker_port']
         default_docker_options = dict(cp.items('DockerExtension'))['docker_options']
         default_docker_username = dict(cp.items('DockerExtension'))['docker_username']
@@ -314,6 +313,9 @@ class BaseCloudHarnessClass():
         default_docker_ca_certificate = dict(cp.items('DockerExtension'))['docker_ca_certificate']
         default_docker_server_certificate = dict(cp.items('DockerExtension'))['docker_server_certificate']
         default_docker_server_key = dict(cp.items('DockerExtension'))['docker_server_key']
+        default_docker_compose = dict(cp.items('DockerExtension'))['docker_compose']
+        default_patching_healthy_test_script = dict(cp.items('OSPatchingExtensionForLinux'))['patching_healthy_test_script']        
+        default_patching_idle_test_script = dict(cp.items('OSPatchingExtensionForLinux'))['patching_idle_test_script']        
     except:
         pass
     
@@ -495,7 +497,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
     default_key_type = 'Primary'
     default_mode = 'auto'
     default_blobtype = 'page'
-    default_docker_compose = 'compose.yaml'
 
     def __init__(self, subscription_id=None, management_certificate=None):
         self.subscription_id = subscription_id or self.default_subscription_id
@@ -1016,23 +1017,28 @@ class AzureCloudClass(BaseCloudHarnessClass):
            
             if verbose: pprint.pprint(self.__dict__)
 
-            if not readonly:                
-                blob_service = BlobService(self.account, self.key)                
+            if not readonly:
+                result = dict()
+                blob_service = BlobService(self.account, self.key)
+
+                result['create_container'] = blob_service.create_container(self.container, x_ms_meta_name_values=None,
+                                                                           x_ms_blob_public_access=None, fail_on_exist=False)
+                
                 with open(self.blob) as f:
                     if self.blobtype == 'page':
-                        result = blob_service.put_page_blob_from_file(self.container,
-                                                                      self.blob,
-                                                                      f,
-                                                                      count=self.disk_size,
-                                                                      max_connections=4,
-                                                                      progress_callback=None)                        
+                        result['put_page_blob_from_file'] = blob_service.put_page_blob_from_file(self.container,
+                                                                                                 self.blob,
+                                                                                                 f,
+                                                                                                 count=self.disk_size,
+                                                                                                 max_connections=4,
+                                                                                                 progress_callback=None)                        
                     if self.blobtype == 'block':
-                        result = blob_service.put_block_blob_from_file(self.container,
-                                                                       self.blob,
-                                                                       f,
-                                                                       count=self.disk_size,
-                                                                       max_connections=4,
-                                                                       progress_callback=None)                    
+                        result['put_block_blob_from_file'] = blob_service.put_block_blob_from_file(self.container,
+                                                                                                   self.blob,
+                                                                                                   f,
+                                                                                                   count=self.disk_size,
+                                                                                                   max_connections=4,
+                                                                                                   progress_callback=None)                    
                 return result
             else:
                 logger('%s: limited to read-only operations' % inspect.stack()[0][3])
@@ -1331,8 +1337,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if self.os == 'Windows':                
                 self.script = self.get_params(key='script', params=arg, default=self.default_windows_customscript_name)
 
-                self.upload_blob({'blob': self.script, 'account': self.account,
-                                  'blobtype': 'block', 'verbose': True})
+                pprint.pprint(self.upload_blob({'blob': self.script, 'account': self.account,
+                                                'blobtype': 'block', 'verbose': True}))
 
                 pub_config['fileUris'] = ['%s' % self.generate_signed_blob_url(account=self.account,
                                                                                container=self.container,
@@ -1353,8 +1359,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 pri_config = dict()
                 self.script = self.get_params(key='script', params=arg, default=self.default_linux_customscript_name)
 
-                self.upload_blob({'blob': self.script, 'account': self.account,
-                                  'blobtype': 'block', 'verbose': True})
+                pprint.pprint(self.upload_blob({'blob': self.script, 'account': self.account,
+                                                'blobtype': 'block', 'verbose': True}))
 
                 self.extension = 'CustomScriptForLinux'
                 self.publisher = 'Microsoft.OSTCExtensions'
@@ -1586,13 +1592,14 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 pub_config['docker']['options'] = self.docker_options
                 pri_config['certs'] = dict()
 
-                try:
-                    with open(self.docker_compose, 'rb') as f:
-                        self.compose = json.loads(json.dumps(yaml.load(f.read())))
-                        pub_config['compose'] = self.compose
-                except IOError:
-                    logger('%s: unable to read %s' % (inspect.stack()[0][3], self.docker_compose))
-                    pub_config['compose'] = None
+                if self.docker_compose:
+                    try:
+                        with open(self.docker_compose, 'rb') as f:
+                            self.compose = json.loads(json.dumps(yaml.load(f.read())))
+                            pub_config['compose'] = self.compose
+                    except IOError:
+                        logger('%s: unable to read %s' % (inspect.stack()[0][3], self.docker_compose))
+                        pub_config['compose'] = None
                 
                 try:
                     with open(self.docker_ca_certificate, 'rb') as cf:
