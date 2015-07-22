@@ -1589,10 +1589,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 try:
                     with open(self.docker_compose, 'rb') as f:
                         self.compose = json.loads(json.dumps(yaml.load(f.read())))
-                        pri_config['compose'] = self.compose
+                        pub_config['compose'] = self.compose
                 except IOError:
                     logger('%s: unable to read %s' % (inspect.stack()[0][3], self.docker_compose))
-                    pri_config['compose'] = None
+                    pub_config['compose'] = None
                 
                 try:
                     with open(self.docker_ca_certificate, 'rb') as cf:
