@@ -23,7 +23,7 @@ import time, sys, os, argparse, logging, json, pprint, ConfigParser, hashlib, st
 
 from datetime import date, timedelta, datetime
 from calendar import timegm
-from random import SystemRandom, randint
+from random import sample, randint
 from xml.etree.ElementTree import Element, SubElement, tostring, fromstring
 from base64 import b64encode
 from urlparse import urlsplit, urlunsplit, parse_qs
@@ -227,7 +227,7 @@ def logger(message=None):
     if BaseCloudHarnessClass.log: logging.info('%s\n' % repr(message))         
 
 def generate_random_password(length=11):
-    return ''.join(SystemRandom().choice(string.ascii_lowercase + string.digits + string.ascii_uppercase) for _ in range(length))
+    return ''.join(sample(map(chr, range(48, 57) + range(65, 90) + range(97, 122)), length))
     
 class BaseCloudHarnessClass():
     log = False
