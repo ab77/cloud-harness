@@ -570,15 +570,15 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 if extension == 'ChefClient':
                     rextrs.append(self.build_chefclient_resource_extension(arg))                
                 if extension == 'CustomScript':
-                    rextrs.append(az.build_customscript_resource_extension(arg))
+                    rextrs.append(self.build_customscript_resource_extension(arg))
                 if extension == 'VMAccessAgent':
-                    rextrs.append(az.build_vmaccess_resource_extension(arg))
+                    rextrs.append(self.build_vmaccess_resource_extension(arg))
                 if extension == 'OSPatching':
-                    rextrs.append(az.build_ospatching_resource_extension(arg))
+                    rextrs.append(self.build_ospatching_resource_extension(arg))
                 if extension == 'DockerExtension':
-                    rextrs.append(az.build_docker_resource_extension(arg))
+                    rextrs.append(self.build_docker_resource_extension(arg))
                 if extension == 'DSC':
-                    rextrs.append(az.build_dsc_resource_extension(arg))                    
+                    rextrs.append(self.build_dsc_resource_extension(arg))                    
             arg['rextrs'] = self.build_resource_extensions_xml_from_dict(rextrs=rextrs)
 
             if verbose: pprint.pprint(self.__dict__)
@@ -726,15 +726,15 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     if extension == 'ChefClient':
                         rextrs.append(self.build_chefclient_resource_extension(arg))                
                     if extension == 'CustomScript':
-                        rextrs.append(az.build_customscript_resource_extension(arg))
+                        rextrs.append(self.build_customscript_resource_extension(arg))
                     if extension == 'VMAccessAgent':
-                        rextrs.append(az.build_vmaccess_resource_extension(arg))
+                        rextrs.append(self.build_vmaccess_resource_extension(arg))
                     if extension == 'OSPatching':
-                        rextrs.append(az.build_ospatching_resource_extension(arg))
+                        rextrs.append(self.build_ospatching_resource_extension(arg))
                     if extension == 'DockerExtension':
-                        rextrs.append(az.build_docker_resource_extension(arg))
+                        rextrs.append(self.build_docker_resource_extension(arg))
                     if extension == 'DSC':
-                        rextrs.append(az.build_dcs_resource_extension(arg))
+                        rextrs.append(self.build_dsc_resource_extension(arg))
                 self.rextrs = self.build_resource_extensions_xml_from_dict(rextrs=rextrs)
             else:
                 self.rextrs = self.get_params(key='rextrs', params=args, default=None)
@@ -1965,15 +1965,15 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     if extension == 'ChefClient':
                         rextrs.append(self.build_chefclient_resource_extension(arg))                
                     if extension == 'CustomScript':
-                        rextrs.append(az.build_customscript_resource_extension(arg))
+                        rextrs.append(self.build_customscript_resource_extension(arg))
                     if extension == 'VMAccessAgent':
-                        rextrs.append(az.build_vmaccess_resource_extension(arg))
+                        rextrs.append(self.build_vmaccess_resource_extension(arg))
                     if extension == 'OSPatching':
-                        rextrs.append(az.build_ospatching_resource_extension(arg))
+                        rextrs.append(self.build_ospatching_resource_extension(arg))
                     if extension == 'DockerExtension':
-                        rextrs.append(az.build_docker_resource_extension(arg))
+                        rextrs.append(self.build_docker_resource_extension(arg))
                     if extension == 'DSC':
-                        rextrs.append(az.build_docker_resource_extension(arg))
+                        rextrs.append(self.build_docker_resource_extension(arg))
                 self.rextrs = self.build_resource_extensions_xml_from_dict(rextrs=rextrs)
             else:
                 self.rextrs = self.get_params(key='rextrs', params=args, default=None)
@@ -3993,6 +3993,18 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
     def set_proxy(self):
         if self.proxy == 'True':
+            import socket
+            s = socket.socket()
+            try:
+                s.connect((self.proxy_host, int(self.proxy_port)))
+            except Exception, e:
+                logger('%s: unable to connect to %s:%d %s' % (inspect.stack()[0][3],
+                                                              self.proxy_host,
+                                                              int(self.proxy_port),
+                                                              e))
+                pass
+                return None
+
             s = Session()
             s.cert = self.default_management_certificate
             if self.ssl_verify == 'True':
