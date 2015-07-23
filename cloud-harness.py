@@ -579,7 +579,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     rextrs.append(az.build_docker_resource_extension(arg))
                 if extension == 'DSC':
                     rextrs.append(az.build_dsc_resource_extension(arg))                    
-
             arg['rextrs'] = self.build_resource_extensions_xml_from_dict(rextrs=rextrs)
 
             if verbose: pprint.pprint(self.__dict__)
@@ -734,6 +733,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         rextrs.append(az.build_ospatching_resource_extension(arg))
                     if extension == 'DockerExtension':
                         rextrs.append(az.build_docker_resource_extension(arg))
+                    if extension == 'DSC':
+                        rextrs.append(az.build_dcs_resource_extension(arg))
                 self.rextrs = self.build_resource_extensions_xml_from_dict(rextrs=rextrs)
             else:
                 self.rextrs = self.get_params(key='rextrs', params=args, default=None)
@@ -1970,6 +1971,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     if extension == 'OSPatching':
                         rextrs.append(az.build_ospatching_resource_extension(arg))
                     if extension == 'DockerExtension':
+                        rextrs.append(az.build_docker_resource_extension(arg))
+                    if extension == 'DSC':
                         rextrs.append(az.build_docker_resource_extension(arg))
                 self.rextrs = self.build_resource_extensions_xml_from_dict(rextrs=rextrs)
             else:
