@@ -29,6 +29,8 @@ from base64 import b64encode
 from urlparse import urlsplit, urlunsplit, parse_qs
 from urllib import quote_plus
 from functools import wraps
+from zipfile import ZipFile, ZIP_DEFLATED
+from StringIO import StringIO 
 
 try:
     from requests import Session
@@ -214,6 +216,7 @@ def args():
     azure.add_argument('--docker_server_key', type=str, required=False, default=AzureCloudClass.default_docker_server_key, help='Docker server private key for TSL configuration (default: %s)' % AzureCloudClass.default_docker_server_key)
     azure.add_argument('--docker_registry_server', type=str, required=False, help='Docker registry server (default: DockerHub)')
     azure.add_argument('--docker_compose', type=str, required=False, default=AzureCloudClass.default_docker_compose, help='Docker compose.yaml file (default: %s)' % AzureCloudClass.default_docker_compose)
+    azure.add_argument('--dsc_module', type=str, required=False, help='DSC module')
     
     args = parser.parse_args()
     logger(message=str(args))
@@ -261,6 +264,7 @@ class BaseCloudHarnessClass():
     default_docker_server_certificate = None
     default_docker_server_key = None
     default_docker_compose = None
+    default_dsc_module = None
     default_windows_customscript_name = None
     default_linux_customscript_name = None
     default_remote_subnets = None
@@ -314,6 +318,7 @@ class BaseCloudHarnessClass():
         default_docker_server_certificate = dict(cp.items('DockerExtension'))['docker_server_certificate']
         default_docker_server_key = dict(cp.items('DockerExtension'))['docker_server_key']
         default_docker_compose = dict(cp.items('DockerExtension'))['docker_compose']
+        default_dsc_module = dict(cp.items('DSCExtension'))['dsc_module']
         default_patching_healthy_test_script = dict(cp.items('OSPatchingExtensionForLinux'))['patching_healthy_test_script']        
         default_patching_idle_test_script = dict(cp.items('OSPatchingExtensionForLinux'))['patching_idle_test_script']        
     except:
@@ -362,6 +367,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'build_vmaccess_resource_extension', 'params': ['os'], 'collection': False},
                {'action': 'build_ospatching_resource_extension', 'params': ['os'], 'collection': False},
                {'action': 'build_docker_resource_extension', 'params': ['os'], 'collection': False},
+               {'action': 'build_dsc_resource_extension', 'params': ['os', 'dsc_module'], 'collection': False},
                {'action': 'build_resource_extension_dict', 'params': ['extension', 'publisher', 'version'], 'collection': False},
                {'action': 'build_resource_extensions_xml_from_dict', 'params': ['rextrs'], 'collection': False},
                {'action': 'check_hosted_service_name_availability', 'params': ['service'], 'collection': False},
@@ -467,6 +473,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                      {'LocalPort': '5986',
                                       'Name': 'PowerShell',
                                       'Port': str(randint(49152,65535)),
+                                      'Protocol': 'tcp'},
+                                     {'LocalPort': '3389',
+                                      'Name': 'Remote Desktop',
+                                      'Port': str(randint(49152,65535)),
                                       'Protocol': 'tcp'}],
                          'Linux': [{'LocalPort': '22',
                                     'Name': 'SSH',
@@ -567,6 +577,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     rextrs.append(az.build_ospatching_resource_extension(arg))
                 if extension == 'DockerExtension':
                     rextrs.append(az.build_docker_resource_extension(arg))
+                if extension == 'DSC':
+                    rextrs.append(az.build_dsc_resource_extension(arg))                    
 
             arg['rextrs'] = self.build_resource_extensions_xml_from_dict(rextrs=rextrs)
 
@@ -741,6 +753,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         operation = self.sms.get_operation_status(result.request_id)
                         d['operation'] = operation.__dict__
                         d['operation_result'] = self.wait_for_operation_status(request_id=result.request_id)
+                        self.wait_for_vm_provisioning_completion({'service': self.service,
+                                                                  'deployment': self.deployment,
+                                                                  'name': self.name})                     
                         return d
                     else:
                         return 
@@ -1014,31 +1029,44 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.blobtype = self.get_params(key='blobtype', params=arg, default=self.default_blobtype)
             readonly = self.get_params(key='readonly', params=arg, default=None)
             verbose = self.get_params(key='verbose', params=arg, default=None)
-           
+            compress = self.get_params(key='compress', params=arg, default=False)
+
             if verbose: pprint.pprint(self.__dict__)
 
             if not readonly:
                 result = dict()
-                blob_service = BlobService(self.account, self.key)
+                blob_service = BlobService(self.account, self.key,
+                                           request_session=self.set_proxy())
 
                 result['create_container'] = blob_service.create_container(self.container, x_ms_meta_name_values=None,
                                                                            x_ms_blob_public_access=None, fail_on_exist=False)
-                
-                with open(self.blob) as f:
-                    if self.blobtype == 'page':
-                        result['put_page_blob_from_file'] = blob_service.put_page_blob_from_file(self.container,
-                                                                                                 self.blob,
-                                                                                                 f,
-                                                                                                 count=self.disk_size,
-                                                                                                 max_connections=4,
-                                                                                                 progress_callback=None)                        
-                    if self.blobtype == 'block':
-                        result['put_block_blob_from_file'] = blob_service.put_block_blob_from_file(self.container,
-                                                                                                   self.blob,
-                                                                                                   f,
-                                                                                                   count=self.disk_size,
-                                                                                                   max_connections=4,
-                                                                                                   progress_callback=None)                    
+                f = file(self.blob, 'rb')
+
+                if compress:
+                    blobzip = StringIO()
+                    zf = ZipFile(blobzip, 'w', ZIP_DEFLATED, False)
+                    zf.writestr(self.blob, f.read())
+                    zf.close()
+                    self.blob = self.blob + '.zip'
+                    blobzip.seek(0, os.SEEK_END)
+                    self.disk_size = blobzip.tell()
+                    blobzip.seek(0)
+                    f = blobzip
+
+                if self.blobtype == 'page':
+                    result['put_page_blob_from_file'] = blob_service.put_page_blob_from_file(self.container,
+                                                                                             self.blob,
+                                                                                             f,
+                                                                                             count=self.disk_size,
+                                                                                             max_connections=4,
+                                                                                             progress_callback=None)                        
+                if self.blobtype == 'block':
+                    result['put_block_blob_from_file'] = blob_service.put_block_blob_from_file(self.container,
+                                                                                               self.blob,
+                                                                                               f,
+                                                                                               count=self.disk_size,
+                                                                                               max_connections=4,
+                                                                                               progress_callback=None)                    
                 return result
             else:
                 logger('%s: limited to read-only operations' % inspect.stack()[0][3])
@@ -1317,7 +1345,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
                                                           pub_config_key=pub_config_key, pri_config_key=pub_config_key,
                                                           pub_config=pub_config, pri_config=pri_config)
-                return rext
+            return rext
         except Exception as e:
             logger(message=traceback.print_exc())
             return False             
@@ -1381,7 +1409,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                           pub_config_key=pub_config_key, pub_config=pub_config,
                                                           pri_config_key=pri_config_key, pri_config=pri_config)
                 
-                return rext
+            return rext
         except Exception as e:            
             logger(message=traceback.print_exc())
             return False
@@ -1433,7 +1461,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
                                                           pub_config_key=pub_config_key, pub_config=pub_config,
                                                           pri_config_key=pri_config_key, pri_config=pri_config)
-            
+                
             if self.os == 'Linux':
                 pub_config_key = 'VMAccessForLinuxPublicConfigParameter'
                 pri_config_key = 'VMAccessForLinuxPrivateConfigParameter'
@@ -1481,7 +1509,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     
                 rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
                                                           pri_config_key=pri_config_key, pri_config=pri_config)
-                return rext
+            return rext
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -1509,7 +1537,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             if self.os == 'Windows':
                 logger(pprint.pprint(self.__dict__))
-                logger('%s is not supported in Windows' % inspect.stack()[0][3])
+                logger('%s is not supported on %s' % (inspect.stack()[0][3],
+                                                      self.os))
                 sys.exit(1)
             
             if self.os == 'Linux':
@@ -1545,7 +1574,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
                                                           pub_config_key=pub_config_key, pub_config=pub_config,
                                                           pri_config_key=pri_config_key, pri_config=pri_config)
-                return rext
+            return rext
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -1573,7 +1602,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
             pri_config = dict() 
             if self.os == 'Windows':                   
                 logger(pprint.pprint(self.__dict__))
-                logger('%s is not supported in Windows' % inspect.stack()[0][3])
+                logger('%s is not supported on %s' % (inspect.stack()[0][3],
+                                                      self.os))                
                 sys.exit(1)                
             
             if self.os == 'Linux':
@@ -1637,13 +1667,72 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
                                                           pub_config_key=pub_config_key, pub_config=pub_config,
                                                           pri_config_key=pri_config_key, pri_config=pri_config)
-                return rext
+            return rext
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
 
-    def build_dsc_resource_extension(self):
-        pass
+    def build_dsc_resource_extension(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.os = self.get_params(key='os', params=arg, default=None)            
+            self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)            
+            self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)
+            self.dsc_module = self.get_params(key='dsc_module', params=arg, default=self.default_dsc_module)
+
+            if self.os == 'Windows':
+                pub_config = dict()
+                pri_config = dict()
+                pub_config_key = 'DSCPublicConfigParameter'
+                pri_config_key = 'DSCPrivateConfigParameter'
+
+                pprint.pprint(self.upload_blob({'blob': self.dsc_module, 'account': self.account,
+                                                'blobtype': 'block', 'verbose': True, 'compress': True}))
+
+                pl = self.generate_signed_blob_url(account=self.account,
+                                                   container=self.container,
+                                                   script=self.dsc_module + '.zip',
+                                                   split=True)
+               
+                pub_config['ModulesUrl'] = '%s://%s%s?' % (pl[0], pl[1], pl[2])
+                pub_config['SasToken'] = pl[3]
+                pub_config['ConfigurationFunction'] = '%s\\%s' % (self.dsc_module,
+                                                                  self.dsc_module.split('.')[0])
+                pub_config['Properties'] = list()
+                pub_config['ProtocolVersion'] = {'Major': 2,
+                                                 'Minor': 0,
+                                                 'Build': 0,
+                                                 'Revision': 0,
+                                                 'MajorRevision': 0,
+                                                 'MinorRevision': 0}
+                self.extension = 'DSC'
+                self.publisher = 'Microsoft.Powershell'
+                rexts = self.list_resource_extension_versions({'publisher': self.publisher, 'extension': self.extension, 'verbose': False})
+                version = None
+                for rext in rexts:
+                    version = rext['version']                
+                self.version = version.split('.')[0] + '.*'
+                pub_config['timestamp'] = '%s' % timegm(time.gmtime())
+                
+                
+                pri_config['DataBlobUri'] = None
+                pri_config['Items'] = None
+                rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
+                                                          pub_config_key=pub_config_key, pub_config=pub_config,
+                                                          pri_config_key=pri_config_key, pri_config=pri_config)
+            if self.os == 'Linux':
+                logger(pprint.pprint(self.__dict__))
+                logger('%s is not supported on %s' % (inspect.stack()[0][3],
+                                                      self.os))
+                sys.exit(1)
+                
+            return rext
+        except Exception as e:            
+            logger(message=traceback.print_exc())
+            return False
     
     def build_octopusdeploy_resource_extension(self):
         pass
@@ -2066,7 +2155,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             options.description = self.description
             options.language = self.language
             options.image_family = self.family
-            options.recommended_vm_size =self.size
+            options.recommended_vm_size = self.size
             self.options = options
 
             if verbose: pprint.pprint(self.__dict__)
@@ -2998,6 +3087,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.account = self.get_params(key='account', params=arg, default=None)
             self.container = self.get_params(key='container', params=arg, default=None)
             self.script = self.get_params(key='script', params=arg, default=None)
+            self.split = self.get_params(key='split', params=arg, default=False)
 
             key = self.get_storage_account_keys({'account': self.account, 'verbose': False})['storage_service_keys']['primary']       
             sas = SharedAccessSignature(account_name=self.account,account_key=key)
@@ -3008,7 +3098,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             path = '/%s/%s' % (self.container, self.script)                
             query = sas.generate_signed_query_string(path, 'b', sap)
             url = 'https://%s.blob.core.windows.net%s?%s' % (self.account, path, query)
-            return self.urlencode_sig_query_string_part(url)               
+            return self.urlencode_sig_query_string_part(url, split=self.split)               
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -4824,7 +4914,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
 
-    def urlencode_sig_query_string_part(self, url):
+    def urlencode_sig_query_string_part(self, url, split=False):
         enc_sig = quote_plus(parse_qs(url)['sig'][0])
         enc_se = quote_plus(parse_qs(url)['se'][0])
         t = urlsplit(url)
@@ -4836,9 +4926,11 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 ql.append('se=' + enc_se)
             else:
                 ql.append(q)
-
         pl = [t.scheme, t.netloc, t.path, '&'.join(ql), '']
-        return urlunsplit(pl)
+        if split:
+            return pl
+        else:
+            return urlunsplit(pl)
 
     def verify_params(self, **kwargs):
         if not kwargs: return None

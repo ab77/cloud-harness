@@ -70,7 +70,7 @@ Some useful examples to deploy virtual machines and resource extensions.
     --name my-ubuntu-virtual-machine \
     --label 'my deployment' \
     --account my-storage-account \
-    --blob b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-14_04-LTS-amd64-server-20140724-en-us-30GB \
+    --blob b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu_DAILY_BUILD-wily-15_10-amd64-server-20150722-en-us-30GB \
     --os Linux \
     --network my-virtual-network-name \
     --subnet my-subnet-name \
@@ -115,7 +115,7 @@ Some useful examples to deploy virtual machines and resource extensions.
     --name my-second-ubuntu-virtual-machine \
     --label 'my Linux (Ubuntu) virtual machine' \
     --account my-storage-account \
-    --blob b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-14_04-LTS-amd64-server-20140724-en-us-30GB \
+    --blob b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu_DAILY_BUILD-wily-15_10-amd64-server-20150722-en-us-30GB \
     --os Linux \
     --network my-virtual-network-name \
     --subnet my-subnet-name \
@@ -132,7 +132,7 @@ Some useful examples to deploy virtual machines and resource extensions.
     --account my-storage-account \
     --verbose
 
-##### Create a Windows virtual machine (role) with random alpha-numeric password, add `ChefClient` extension:
+##### Create a Windows virtual machine (role) with random alpha-numeric password, add `CustomScript` extension to un-pack/execute `windows_custom_data.dat` where you can put additional bootstrap commands:
 
     ./cloud-harness.py azure --action add_role \
     --service my-hosted-service \
@@ -145,17 +145,27 @@ Some useful examples to deploy virtual machines and resource extensions.
     --network my-virtual-network-name \
     --subnet my-subnet-name \
     --size Medium \
-	--extension ChefClient \
+	--extension CustomScript \
     --verbose
 
-##### Add `CustomScript` extension to the Windows virtual machine, which will run `bootstrap.ps1` to un-pack/execute `windows_custom_data.dat` where you can put additional bootstrap commands:
+##### Add `ChefClient` extension to the Windows virtual machine:
 
     ./cloud-harness.py azure --action add_resource_extension \
     --service my-hosted-service \
     --deployment my-virtual-machine-deployment \
     --name my-windows-virtual-machine \
-    --extension CustomScript \
+    --extension ChefClient \
     --verbose
+	
+##### Add `DSC` (Desired State Configuration) extension to the Windows virtual machine:
+
+    ./cloud-harness.py azure --action add_resource_extension \
+    --service my-hosted-service \
+    --deployment my-virtual-machine-deployment \
+    --name my-windows-virtual-machine \
+    --extension DSC \
+	--module IISInstall.ps1
+    --verbose	
 	
 ##### Reset the Administrator password on the Windows VM using `VMAccess` extension:
 
