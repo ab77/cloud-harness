@@ -216,7 +216,7 @@ def args():
     azure.add_argument('--docker_server_key', type=str, required=False, default=AzureCloudClass.default_docker_server_key, help='Docker server private key for TSL configuration (default: %s)' % AzureCloudClass.default_docker_server_key)
     azure.add_argument('--docker_registry_server', type=str, required=False, help='Docker registry server (default: DockerHub)')
     azure.add_argument('--docker_compose', type=str, required=False, default=AzureCloudClass.default_docker_compose, help='Docker compose.yaml file (default: %s)' % AzureCloudClass.default_docker_compose)
-    azure.add_argument('--dsc_module', type=str, required=False, help='DSC module')
+    azure.add_argument('--dsc_module', type=str, required=False, default=AzureCloudClass.default_dsc_module, help='DSC module (default: %s)' % AzureCloudClass.default_dsc_module)
     
     args = parser.parse_args()
     logger(message=str(args))
