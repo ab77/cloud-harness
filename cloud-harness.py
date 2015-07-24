@@ -226,8 +226,12 @@ def logger(message=None):
     if BaseCloudHarnessClass.debug: sys.stderr.write('DEBUG %s\n' % repr(message))
     if BaseCloudHarnessClass.log: logging.info('%s\n' % repr(message))         
 
-def generate_random_password(length=11):
-    return ''.join(sample(map(chr, range(48, 57) + range(65, 90) + range(97, 122)), length))
+def generate_random_password(length=11):    
+    pwd = ''.join(sample(map(chr, range(48, 57) + range(65, 90) + range(97, 122)), length))
+    if [d for d in pwd if d.isdigit()]:
+        return pwd
+    else:
+        return generate_random_password(length)
     
 class BaseCloudHarnessClass():
     log = False
@@ -1687,8 +1691,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)
 
             # https://msdn.microsoft.com/en-us/library/azure/dn832940.aspx
-            # use Powershell CmdLet for now: Publish-AzureVMDscConfiguration .\MyConfiguration.ps1 -ConfigurationArchivePath .\MyConfiguration.ps1.zip
+            # use PowerShell CmdLet for now: Publish-AzureVMDscConfiguration .\MyConfiguration.ps1 -ConfigurationArchivePath .\MyConfiguration.ps1.zip
             self.dsc_module = self.get_params(key='dsc_module', params=arg, default=self.default_dsc_module)
+
+            if self.dsc_module.split('.')[-1] != 'zip':
+                logger('%s: %s must be a valid zip archive' % (inspect.stack()[0][3],
+                                                               self.dsc_module))
+                sys.exit(1)
 
             if self.os == 'Windows':
                 pub_config = dict()
@@ -1706,7 +1715,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                
                 pub_config['ModulesUrl'] = '%s://%s%s?' % (pl[0], pl[1], pl[2])
                 pub_config['SasToken'] = pl[3]
-                pub_config['ConfigurationFunction'] = '%s\\%s' % (self.dsc_module,
+                pub_config['ConfigurationFunction'] = '%s\\%s' % (self.dsc_module.split('.')[0] + '.ps1',
                                                                   self.dsc_module.split('.')[0])
                 pub_config['Properties'] = list()
                 pub_config['ProtocolVersion'] = {'Major': 2,
