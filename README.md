@@ -207,12 +207,12 @@ Lots, including:
 
 [n2] SSH authentication is not compatible with `ChefClient` extension due to the way it currently handles certificates [PR45](https://github.com/chef-partners/azure-chef-extension/pull/45).
 
-[n3] CustomScript extension on Linux by default, will run `bootstrap.sh` to upgrade `WAAgent` as well as un-pack/execute `linux_custom_data.dat` where you can put additional bootstrap commands.
+[n3] `CustomScript` extension on Linux by default, will run `bootstrap.sh` to upgrade `WAAgent` as well as un-pack/execute `linux_custom_data.dat` where you can put additional bootstrap commands.
 
-[n4] CustomScript extension on Windows by default, will run `bootstrap.ps1` to un-pack/execute `windows_custom_data.dat` where you can put additional bootstrap commands.
+[n4] `CustomScript` extension on Windows by default, will run `bootstrap.ps1` to un-pack/execute `windows_custom_data.dat` where you can put additional bootstrap commands.
 
-[n5] All update_role() actions currently reset ACLs, use `--action set_epacls` to set them again. Also, this operation will cause a reboot and currently generates new public facing port numbers.
+[n5] `update_role()` currently resets ACLs, use `--action set_epacls` to set them again if you get a warning. Also, this operation will cause a reboot and currently generates new public facing port numbers.
 
-[n6] Docker is secured by default with SSL, using a server certificate signed by a private CA.
+[n6] `Docker` is secured by default with SSL, using a server certificate signed by a private CA.
 
-[n6] DSC configuration archive can be compiled using PowerShell, run `Publish-AzureVMDscConfiguration .\MyConfiguration.ps1 -ConfigurationArchivePath .\MyConfiguration.ps1.zip`
+[n6] `DSC` configuration archive can be compiled using PowerShell, run `Publish-AzureVMDscConfiguration .\MyConfiguration.ps1 -ConfigurationArchivePath .\MyConfiguration.ps1.zip`
