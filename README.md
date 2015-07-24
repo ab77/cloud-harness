@@ -3,8 +3,8 @@ Python wrapper for cloud service provider APIs/SDKs.
 
 ### Supported Cloud Providers
 * Microsoft Azure `./cloud-harness.py azure`, incorporating:
-- Azure Service Management APIs via [Microsoft Azure Python SDK/API](https://github.com/Azure/azure-sdk-for-python)
-- [Azure Resource Management APIs](https://msdn.microsoft.com/en-us/library/azure/dn948464.aspx)
+	- Azure Service Management APIs via [Microsoft Azure Python SDK/API](https://github.com/Azure/azure-sdk-for-python)
+	- [Azure Resource Management APIs](https://msdn.microsoft.com/en-us/library/azure/dn948464.aspx)
 
 ### Installation and Configuration
 * from a working Python environment, run `pip install azure && /opt && git clone https://github.com/ab77/cloud-harness.git && cd ./cloud-harness`
