@@ -346,6 +346,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'list_reserved_ip_addresses', 'params': [], 'collection': True},
                {'action': 'list_resource_extension_versions', 'params': [], 'collection': False},
                {'action': 'list_resource_extensions', 'params': [], 'collection': True},
+               {'action': 'list_resource_groups', 'params': [], 'collection': False},
                {'action': 'list_role_sizes', 'params': [], 'collection': True},
                {'action': 'list_service_certificates', 'params': ['service'], 'collection': False},
                {'action': 'list_storage_accounts', 'params': [], 'collection': True},
@@ -1053,6 +1054,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     self.disk_size = blobzip.tell()
                     blobzip.seek(0)
                     f = blobzip
+                    blobzip.close()
 
                 if self.blobtype == 'page':
                     result['put_page_blob_from_file'] = blob_service.put_page_blob_from_file(self.container,
@@ -1068,6 +1070,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                                                                count=self.disk_size,
                                                                                                max_connections=4,
                                                                                                progress_callback=None)                    
+                f.close()
                 return result
             else:
                 logger('%s: limited to read-only operations' % inspect.stack()[0][3])
@@ -1682,6 +1685,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.os = self.get_params(key='os', params=arg, default=None)            
             self.account = self.get_params(key='account', params=arg, default=self.default_storage_account)            
             self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)
+
+            # https://msdn.microsoft.com/en-us/library/azure/dn832940.aspx
+            # use Powershell CmdLet for now: Publish-AzureVMDscConfiguration .\MyConfiguration.ps1 -ConfigurationArchivePath .\MyConfiguration.ps1.zip
             self.dsc_module = self.get_params(key='dsc_module', params=arg, default=self.default_dsc_module)
 
             if self.os == 'Windows':
@@ -1691,11 +1697,11 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 pri_config_key = 'DSCPrivateConfigParameter'
 
                 pprint.pprint(self.upload_blob({'blob': self.dsc_module, 'account': self.account,
-                                                'blobtype': 'block', 'verbose': True, 'compress': True}))
+                                                'blobtype': 'block', 'verbose': True, 'compress': False}))
 
                 pl = self.generate_signed_blob_url(account=self.account,
                                                    container=self.container,
-                                                   script=self.dsc_module + '.zip',
+                                                   script=self.dsc_module,
                                                    split=True)
                
                 pub_config['ModulesUrl'] = '%s://%s%s?' % (pl[0], pl[1], pl[2])
@@ -3436,6 +3442,180 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
     def host(self):
         return self.sms.host
+
+    def list_resource_groups(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+
+            import requests, uuid
+                                                                                                                                         
+            api_version = '2015-01-01'
+            client_id = 'f5fa209a-a8e0-48b0-b685-021273a2d8d7'
+            client_key = '3ZRei8KbptIbRGQb0HvUQFTOGkPBpytk/sWBmLZZ4zk='
+            tenant_id = '6d4104c9-a328-484c-bfb1-e83528c52f06'
+            token_url = 'https://login.microsoftonline.com/%s/oauth2/token' % tenant_id
+
+            s = self.set_proxy()
+            s.headers.update({'Accept': 'application/json'})
+
+            data = {'grant_type': 'client_credentials',                    
+                    'client_id': client_id,
+                    'client_secret': client_key,
+                    'resource': 'https://management.azure.com/'}
+
+            response = s.post(token_url, data=data)
+            
+            d = json.loads(response.text)
+            access_token = d['access_token']
+            token_type = d['token_type']
+
+            s.headers.update({'Authorization': '%s %s' % (token_type,
+                                                          access_token)})
+            
+
+##            url = 'https://management.azure.com/subscriptions?api-version=%s' % api_version
+##            response = s.get(url)
+##            d = json.loads(response.text)
+##            pprint.pprint(d)
+
+##            url = 'https://management.azure.com/subscriptions/%s?api-version=%s' % (self.subscription_id,
+
+##            response = s.get(url)
+##            d = json.loads(response.text)
+##            pprint.pprint(d)
+
+
+
+##            url = 'https://management.azure.com/subscriptions/%s/resourcegroups/%s?api-version=%s' % (self.subscription_id,
+##                                                                                                      'BelodeGroup',
+##                                                                                                      api_version)
+##            data = \
+##'''{
+##  "location": "East US",
+##    "tags": {
+##    "tagname1": "BelodeGroup"
+##  }
+##}'''
+##            s.headers.update({'Content-Type': 'application/json'})
+##
+##            response = s.put(url, data)
+##            d = json.loads(response.text)
+##            pprint.pprint(d)
+##
+##
+##
+##
+##
+##            url = 'https://management.azure.com/subscriptions/%s/resourcegroups?api-version=%s' % (self.subscription_id,
+##                                                                                                   api_version)
+##
+##            response = s.get(url)
+##            d = json.loads(response.text)
+##            pprint.pprint(d)
+
+
+
+
+
+
+            api_version = '1.5'
+            data = {'grant_type': 'client_credentials',                    
+                    'client_id': client_id,
+                    'client_secret': client_key,
+                    'resource': 'https://graph.windows.net/'}
+
+            response = s.post(token_url, data=data)
+            
+            d = json.loads(response.text)
+            access_token = d['access_token']
+            token_type = d['token_type']
+
+            s.headers.update({'Authorization': '%s %s' % (token_type,
+                                                          access_token)})
+
+            url = "https://graph.windows.net/%s/servicePrincipals?$filter=servicePrincipalNames/any(c:c eq '%s')&api-version=%s" % (tenant_id,
+                                                                                                                                    client_id,
+                                                                                                                                    api_version)
+            response = s.get(url)
+            d = json.loads(response.text)
+            pprint.pprint(d)
+
+            
+
+            service_principal_id = d['value'][0]['objectId']
+          
+
+
+
+
+            data = {'grant_type': 'client_credentials',                    
+                    'client_id': client_id,
+                    'client_secret': client_key,
+                    'resource': 'https://management.azure.com/'}
+
+            response = s.post(token_url, data=data)
+            
+            d = json.loads(response.text)
+            access_token = d['access_token']
+            token_type = d['token_type']
+
+            s.headers.update({'Authorization': '%s %s' % (token_type,
+                                                          access_token)})
+
+
+
+
+            api_version = '2015-05-01-preview'
+
+
+
+            url = 'https://management.azure.com/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions?api-version=%s' % (self.subscription_id,
+                                                                                                                                      api_version)
+
+            response = s.get(url)
+            d = json.loads(response.text)
+            pprint.pprint(d)
+
+
+
+
+##
+##
+##            
+##            role_id = '8e3af657-a8ff-443c-a75c-2fe8c4bcb635' # Owner
+##            guid = str(uuid.uuid4())
+##            
+##            url = 'https://management.azure.com/%s/providers/Microsoft.Authorization/roleAssignments/%s?api-version=%s' % ('subscriptions/%s' % self.subscription_id,
+##                                                                                                                           guid,
+##                                                                                                                           api_version)
+##            data = \
+##'''{
+##  "properties": {
+##    "roleDefinitionId": "/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s",
+##    "principalId": "%s"
+##  }
+##}''' % (self.subscription_id, role_id, service_principal_id)
+##            
+##            s.headers.update({'Content-Type': 'application/json'})
+##
+##            response = s.put(url, data)
+##            d = json.loads(response.text)
+##            pprint.pprint(d)
+
+
+            
+            return None        
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False   
 
     def list_resource_extension_versions(self, *args):
         try:            
