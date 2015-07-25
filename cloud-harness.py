@@ -140,6 +140,8 @@ def args():
     azure.add_argument('--description', type=str, required=False, help='resource description')
     azure.add_argument('--name', type=str, nargs='+', required=False, help='resource name(s)')
     azure.add_argument('--group', type=str, required=False, help='group name')
+    azure.add_argument('--service_principal_id', type=str, required=False, help='service principal object ID')
+    azure.add_argument('--role_definition_id', type=str, required=False, help='role definition ID')
     azure.add_argument('--dns', type=str, nargs='+', required=False, help='dns server name(s)')
     azure.add_argument('--ipaddr', type=str, nargs='+', required=False, help='reserved IP address name or DNS server IP address(es)')
     azure.add_argument('--blob', type=str, nargs='+', required=False, help='disk image blob name(s)')
@@ -393,8 +395,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'create_hosted_service', 'params': ['service', 'label'], 'collection': False},
                {'action': 'create_virtual_machine_deployment', 'params': ['deployment', 'service', 'os', 'name', 'blob', 'subnet', 'account', 'network'], 'collection': False},
                {'action': 'create_virtual_network_site', 'params': ['network', 'subnet', 'subnetaddr', 'vnetaddr'], 'collection': False},
+               {'action': 'create_resource_group', 'params': ['group'], 'collection': False},
                {'action': 'change_deployment_configuration', 'params': ['service', 'deployment', 'package_config'], 'collection': False},
                {'action': 'create_storage_account', 'params': ['account'], 'collection': False},
+               {'action': 'create_role_assignment', 'params': ['role_definition_id'], 'collection': False},
                {'action': 'capture_role', 'params': ['service', 'deployment', 'name', 'blob'], 'collection': False},
                {'action': 'capture_vm_image', 'params': ['service', 'deployment', 'name', 'blob'], 'collection': False},
                {'action': 'create_deployment', 'params': ['service', 'deployment', 'name', 'package_url', 'package_config'], 'collection': False},
@@ -606,10 +610,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
 
-    def get_service_principal_id_by_aad_app_name(self, **kwargs):
+    def get_service_principal_id_by_aad_app_name(self, *args):
         try:
-            if not kwargs: return False
-            arg = self.verify_params(method=inspect.stack()[0][3], params=kwargs)
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
             if not arg: return False
 
             self.aad_app = self.get_params(key='aad_app', params=arg, default=self.default_aad_app)
@@ -3616,49 +3620,81 @@ class AzureCloudClass(BaseCloudHarnessClass):
             return False
 
     def create_resource_group(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+            
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.api_version = self.get_params(key='api_version', params=arg, default=self.default_api_version)
+            self.group = self.get_params(key='group', params=arg, default=None)
+            self.location = self.get_params(key='location', params=arg, default=self.default_location)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
+                        
+            verbose = self.get_params(key='verbose', params=arg, default=None)
 
-##            url = 'https://management.azure.com/subscriptions/%s/resourcegroups/%s?api-version=%s' % (self.subscription_id,
-##                                                                                                      'BelodeGroup',
-##                                                                                                      api_version)
-##            data = \
-##'''{
-##  "location": "East US",
-##    "tags": {
-##    "tagname1": "BelodeGroup"
-##  }
-##}'''
-##            s.headers.update({'Content-Type': 'application/json'})
-##
-##            response = s.put(url, data)
-##            d = json.loads(response.text)
-##            pprint.pprint(d)
-        
-        pass
+            url = 'https://management.azure.com/subscriptions/%s/resourcegroups/%s?api-version=%s' % (self.subscription_id,
+                                                                                                      self.group,
+                                                                                                      self.api_version)
+            data = '{"location": "%s", "tags": {"tagname1": "%s"}}' % (self.location,
+                                                                       self.group)
+
+            if verbose: pprint.pprint(self.__dict__)
+            
+            if not readonly:
+                self.arm_sess.headers.update({'Content-Type': 'application/json'})           
+                self.arm_sess.headers.update(self.arm_auth)
+                response = self.arm_sess.put(url, data)
+                d = json.loads(response.text)
+                return d
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
 
     def create_role_assignment(self, *args):
-        
-# Set role assignment
-##            role_id = '8e3af657-a8ff-443c-a75c-2fe8c4bcb635' # Owner
-##            guid = str(uuid.uuid4())
-##            
-##            url = 'https://management.azure.com/%s/providers/Microsoft.Authorization/roleAssignments/%s?api-version=%s' % ('subscriptions/%s' % self.subscription_id,
-##                                                                                                                           guid,
-##                                                                                                                           api_version)
-##            data = \
-##'''{
-##  "properties": {
-##    "roleDefinitionId": "/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s",
-##    "principalId": "%s"
-##  }
-##}''' % (self.subscription_id, role_id, service_principal_id)
-##            
-##            s.headers.update({'Content-Type': 'application/json'})
-##
-##            response = s.put(url, data)
-##            d = json.loads(response.text)
-##            pprint.pprint(d)
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+            
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.role_definition_id = self.get_params(key='role_definition_id', params=arg, default=None)
+            self.scope = self.get_params(key='scope', params=arg, default='subscriptions/%s' % self.subscription_id)
+            self.service_principal_id = self.get_params(key='service_principal_id', params=arg,
+                                                        default=self.get_service_principal_id_by_aad_app_name({'aad_app': None,
+                                                                                                               'api_version': None}))            
+            self.api_version = self.get_params(key='api_version', params=arg, default='2015-06-01')
+            readonly = self.get_params(key='readonly', params=arg, default=None)                       
+            verbose = self.get_params(key='verbose', params=arg, default=None)
 
-        pass
+            self.role_assignment_id = str(uuid.uuid4())
+
+            url = 'https://management.azure.com/%s/providers/Microsoft.Authorization/roleAssignments/%s?api-version=%s' % (self.scope,
+                                                                                                                           self.role_assignment_id,
+                                                                                                                           self.api_version)
+            data = \
+            '''{
+              "properties": {
+                "roleDefinitionId": "/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s",
+                "principalId": "%s",
+              }
+            }''' % (self.subscription_id, self.role_definition_id, self.service_principal_id)
+
+            if verbose: pprint.pprint(self.__dict__)
+            
+            if not readonly:
+                self.arm_sess.headers.update({'Content-Type': 'application/json'})           
+                self.arm_sess.headers.update(self.arm_auth)
+                response = self.arm_sess.put(url, data)
+                d = json.loads(response.text)
+                return d
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
 
     def list_resource_extension_versions(self, *args):
         try:            
