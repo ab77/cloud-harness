@@ -19,7 +19,7 @@ Requires:
 - [PyCrypto - The Python Cryptography Toolkit](https://www.dlitz.net/software/pycrypto/)
 '''
 
-import time, sys, os, argparse, logging, json, pprint, ConfigParser, hashlib, string, inspect, traceback
+import time, sys, os, argparse, logging, json, pprint, ConfigParser, hashlib, string, inspect, traceback, uuid
 
 from datetime import date, timedelta, datetime
 from calendar import timegm
@@ -33,7 +33,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 from StringIO import StringIO 
 
 try:
-    from requests import Session
+    import requests
 except ImportError:
     sys.stderr.write('ERROR: Python module "requests" not found, please run "pip install requests".\n')
     sys.exit(1)
@@ -247,6 +247,11 @@ class BaseCloudHarnessClass():
 
     default_subscription_id = None
     default_management_certificate = None
+    default_aad_app = None
+    default_client_id = None
+    default_client_key = None
+    default_tenant_id = None
+    default_api_version = None
     default_docker_port = None
     default_docker_options = None
     default_docker_username = None
@@ -291,7 +296,12 @@ class BaseCloudHarnessClass():
 
     try:
         default_subscription_id = dict(cp.items('AzureConfig'))['subscription_id']
-        default_management_certificate = dict(cp.items('AzureConfig'))['management_certificate']        
+        default_management_certificate = dict(cp.items('AzureConfig'))['management_certificate']
+        default_aad_app = dict(cp.items('AzureConfig'))['aad_app']
+        default_client_id = dict(cp.items('AzureConfig'))['client_id']
+        default_client_key = dict(cp.items('AzureConfig'))['client_key']
+        default_tenant_id = dict(cp.items('AzureConfig'))['tenant_id']
+        default_api_version = dict(cp.items('AzureConfig'))['api_version']
         proxy = dict(cp.items('AzureConfig'))['proxy']
         proxy_host = dict(cp.items('AzureConfig'))['proxy_host']
         proxy_port = dict(cp.items('AzureConfig'))['proxy_port']
@@ -356,8 +366,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'list_storage_accounts', 'params': [], 'collection': True},
                {'action': 'list_subscription_operations', 'params': [], 'collection': False},
                {'action': 'list_subscriptions', 'params': [], 'collection': True},
+               {'action': 'list_subscriptions_arm', 'params': [], 'collection': False},
                {'action': 'list_virtual_network_sites', 'params': ['action'], 'collection': True},
                {'action': 'list_vm_images', 'params': [], 'collection': True},
+               {'action': 'list_role_definitions', 'params': [], 'collection': False},
                {'action': 'add_resource_extension', 'params': ['service', 'deployment', 'name', 'extension'], 'collection': False},
                {'action': 'add_role', 'params': ['deployment', 'service', 'os', 'name', 'blob', 'subnet', 'account'], 'collection': False},
                {'action': 'add_data_disk', 'params': ['service', 'deployment', 'name'], 'collection': False},
@@ -418,11 +430,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'get_service_certificate', 'params': ['service', 'thumbprint'], 'collection': False},
                {'action': 'get_storage_account_keys', 'params': ['account'], 'collection': False},
                {'action': 'get_subscription', 'params': [], 'collection': False},
+               {'action': 'get_subscription_properties', 'params': [], 'collection': False},             
                {'action': 'get_affinity_group_properties', 'params': ['name'], 'collection': False},
                {'action': 'get_hosted_service_properties', 'params': ['service'], 'collection': False},
                {'action': 'get_disk_by_role_name', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'get_objs_for_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
                {'action': 'get_pub_key_and_thumbprint_from_x509_cert', 'params': ['certificate', 'algorithm'], 'collection': False},
+               {'action': 'get_service_principal_id_by_aad_app_name', 'params': [], 'collection': False},
                {'action': 'generate_signed_blob_url', 'params': ['account', 'container', 'script'], 'collection': False},
                {'action': 'get_epacls', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'get_virtual_network_site', 'params': [], 'collection': False},
@@ -513,45 +527,105 @@ class AzureCloudClass(BaseCloudHarnessClass):
     default_mode = 'auto'
     default_blobtype = 'page'
 
-    def __init__(self, subscription_id=None, management_certificate=None):
-        self.subscription_id = subscription_id or self.default_subscription_id
-        self.management_certificate = management_certificate or self.default_management_certificate
+    def __init__(self, subscription_id=None, management_certificate=None,
+                 aad_app=None, client_id=None, client_key=None, tenant_id=None):
+        try:
+            self.subscription_id = subscription_id or self.default_subscription_id
+            self.management_certificate = management_certificate or self.default_management_certificate
+            self.aad_app = aad_app or self.default_aad_app
+            self.client_id = client_id or self.default_client_id
+            self.client_key = client_key or self.default_client_key
+            self.tenant_id = tenant_id or self.default_tenant_id
 
-        if not self.subscription_id or not self.management_certificate:
-            for psf in os.listdir("."):
-                if psf.endswith(".publishsettings"):
-                    self.publish_settings = psf
-                    break
-        
-            if self.publish_settings:
-                self.management_certificate = 'management_certificate.pem'
-                self.subscription_id = get_certificate_from_publish_settings(self.publish_settings,
-                                                                             path_to_write_certificate=self.management_certificate,
-                                                                             subscription_id=None)
-                
-                self.cp.set('AzureConfig', 'subscription_id', self.subscription_id)
-                self.cp.set('AzureConfig', 'management_certificate', self.management_certificate)
-                try:
-                    with open(self.config_file, 'wb') as cf:
-                        self.cp.write(cf)
-                except IOError:
-                    logger('%s: failed to update configuration file %s' % (inspect.stack()[0][3],
-                                                                           self.config_file))
-                    sys.exit(1)
+            if not self.subscription_id or not self.management_certificate:
+                for psf in os.listdir("."):
+                    if psf.endswith(".publishsettings"):
+                        self.publish_settings = psf
+                        break
+            
+                if self.publish_settings:
+                    self.management_certificate = 'management_certificate.pem'
+                    self.subscription_id = get_certificate_from_publish_settings(self.publish_settings,
+                                                                                 path_to_write_certificate=self.management_certificate,
+                                                                                 subscription_id=None)
                     
-                if not self.subscription_id:
-                    logger('%s: failed to extract management certificate fom PublishSettings' % inspect.stack()[0][3])
-                    sys.exit(1)
+                    self.cp.set('AzureConfig', 'subscription_id', self.subscription_id)
+                    self.cp.set('AzureConfig', 'management_certificate', self.management_certificate)
+                    try:
+                        with open(self.config_file, 'wb') as cf:
+                            self.cp.write(cf)
+                    except IOError:
+                        logger('%s: failed to update configuration file %s' % (inspect.stack()[0][3],
+                                                                               self.config_file))
+                        sys.exit(1)
+                        
+                    if not self.subscription_id:
+                        logger('%s: failed to extract management certificate fom PublishSettings' % inspect.stack()[0][3])
+                        sys.exit(1)
+                    else:
+                        logger('%s: written Azure management_certificate.pem for subscription_id %s' % (inspect.stack()[0][3],                                                                                               self.subscription_id))
                 else:
-                    logger('%s: written Azure management_certificate.pem for subscription_id %s' % (inspect.stack()[0][3],                                                                                               self.subscription_id))
+                    logger('%s: requires an Azure subscription_id and management_certificate (PublishSettings file not found)' % inspect.stack()[0][3])
+                    sys.exit(1)
             else:
-                logger('%s: requires an Azure subscription_id and management_certificate (PublishSettings file not found)' % inspect.stack()[0][3])
-                sys.exit(1)
+                self.sms = ServiceManagementService(self.subscription_id,
+                                                    self.management_certificate,
+                                                    request_session=self.get_request_session())
 
-        self.sms = ServiceManagementService(self.subscription_id,
-                                            self.management_certificate,
-                                            request_session=self.set_proxy())
+            if not self.aad_app or not self.client_id or not self.client_key or not self.tenant_id:
+                logger('%s: Azure Resource Management APIs authentication credentials missing' % inspect.stack()[0][3])
+                self.access_token = None
+                pass
+            else:
+                token_url = 'https://login.microsoftonline.com/%s/oauth2/token' % self.tenant_id
+                self.arm_sess = self.get_request_session()
+                self.arm_sess.headers.update({'Accept': 'application/json'})
+                data = {'grant_type': 'client_credentials',                    
+                        'client_id': self.client_id,
+                        'client_secret': self.client_key,
+                        'resource': 'https://management.azure.com/'}
+                response = self.arm_sess.post(token_url, data=data)
+                d = json.loads(response.text)
+                self.arm_access_token = d['access_token']
+                self.arm_token_type = d['token_type']
+                self.arm_expires = d['expires_on']
+                self.arm_auth = {'Authorization': '%s %s' % (self.arm_token_type,
+                                                             self.arm_access_token)}
+                data = {'grant_type': 'client_credentials',                    
+                        'client_id': self.client_id,
+                        'client_secret': self.client_key,
+                        'resource': 'https://graph.windows.net/'}
+                response = self.arm_sess.post(token_url, data=data)
+                d = json.loads(response.text)
+                self.graph_access_token = d['access_token']
+                self.graph_token_type = d['token_type']
+                self.graph_expires = d['expires_on']
+                self.graph_auth = {'Authorization': '%s %s' % (self.graph_token_type,
+                                                               self.graph_access_token)}
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
 
+    def get_service_principal_id_by_aad_app_name(self, **kwargs):
+        try:
+            if not kwargs: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=kwargs)
+            if not arg: return False
+
+            self.aad_app = self.get_params(key='aad_app', params=arg, default=self.default_aad_app)
+            self.api_version = self.get_params(key='api_version', params=arg, default='1.5')
+
+            url = "https://graph.windows.net/%s/servicePrincipals?$filter=servicePrincipalNames/any(c:c eq '%s')&api-version=%s" % (self.tenant_id,
+                                                                                                                                    self.client_id,
+                                                                                                                                    self.api_version)
+            self.arm_sess.headers.update(self.graph_auth)
+            response = self.arm_sess.get(url)
+            d = json.loads(response.text)
+            return d['value'][0]['objectId']
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+        
     def add_resource_extension(self, *args):
         try:
             if not args: return False
@@ -1042,7 +1116,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if not readonly:
                 result = dict()
                 blob_service = BlobService(self.account, self.key,
-                                           request_session=self.set_proxy())
+                                           request_session=self.get_request_session())
 
                 result['create_container'] = blob_service.create_container(self.container, x_ms_meta_name_values=None,
                                                                            x_ms_blob_public_access=None, fail_on_exist=False)
@@ -3459,49 +3533,89 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if not arg: return False
 
             self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.api_version = self.get_params(key='api_version', params=arg, default=self.default_api_version)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+            
+            url = 'https://management.azure.com/subscriptions/%s/resourcegroups?api-version=%s' % (self.subscription_id,
+                                                                                                   self.api_version)
+
+            self.arm_sess.headers.update(self.arm_auth)
+            response = self.arm_sess.get(url)
+            d = json.loads(response.text)
+            return d
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False   
+
+    def list_subscriptions_arm(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.api_version = self.get_params(key='api_version', params=arg, default=self.default_api_version)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)       
+
+            url = 'https://management.azure.com/subscriptions?api-version=%s' % self.api_version
+            self.arm_sess.headers.update(self.arm_auth)
+            response = self.arm_sess.get(url)
+            d = json.loads(response.text)
+            return d
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False   
+
+    def get_subscription_properties(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.api_version = self.get_params(key='api_version', params=arg, default=self.default_api_version)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)       
+
+            url = 'https://management.azure.com/subscriptions/%s?api-version=%s' % (self.subscription_id,
+                                                                                    self.api_version)
+            self.arm_sess.headers.update(self.arm_auth)
+            response = self.arm_sess.get(url)
+            d = json.loads(response.text)
+            return d
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False   
+
+    def list_role_definitions(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.api_version = self.get_params(key='api_version', params=arg, default='2015-06-01')
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             if verbose: pprint.pprint(self.__dict__)
 
+            url = 'https://management.azure.com/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions?api-version=%s' % (self.subscription_id,
+                                                                                                                                      self.api_version)
 
-            import requests, uuid
-                                                                                                                                         
-            api_version = '2015-01-01'
-            client_id = 'f5fa209a-a8e0-48b0-b685-021273a2d8d7'
-            client_key = '3ZRei8KbptIbRGQb0HvUQFTOGkPBpytk/sWBmLZZ4zk='
-            tenant_id = '6d4104c9-a328-484c-bfb1-e83528c52f06'
-            token_url = 'https://login.microsoftonline.com/%s/oauth2/token' % tenant_id
-
-            s = self.set_proxy()
-            s.headers.update({'Accept': 'application/json'})
-
-            data = {'grant_type': 'client_credentials',                    
-                    'client_id': client_id,
-                    'client_secret': client_key,
-                    'resource': 'https://management.azure.com/'}
-
-            response = s.post(token_url, data=data)
-            
+            self.arm_sess.headers.update(self.arm_auth)
+            response = self.arm_sess.get(url)
             d = json.loads(response.text)
-            access_token = d['access_token']
-            token_type = d['token_type']
+            return d
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
 
-            s.headers.update({'Authorization': '%s %s' % (token_type,
-                                                          access_token)})
-            
-
-##            url = 'https://management.azure.com/subscriptions?api-version=%s' % api_version
-##            response = s.get(url)
-##            d = json.loads(response.text)
-##            pprint.pprint(d)
-
-##            url = 'https://management.azure.com/subscriptions/%s?api-version=%s' % (self.subscription_id,
-
-##            response = s.get(url)
-##            d = json.loads(response.text)
-##            pprint.pprint(d)
-
-
+    def create_resource_group(self, *args):
 
 ##            url = 'https://management.azure.com/subscriptions/%s/resourcegroups/%s?api-version=%s' % (self.subscription_id,
 ##                                                                                                      'BelodeGroup',
@@ -3518,87 +3632,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
 ##            response = s.put(url, data)
 ##            d = json.loads(response.text)
 ##            pprint.pprint(d)
-##
-##
-##
-##
-##
-##            url = 'https://management.azure.com/subscriptions/%s/resourcegroups?api-version=%s' % (self.subscription_id,
-##                                                                                                   api_version)
-##
-##            response = s.get(url)
-##            d = json.loads(response.text)
-##            pprint.pprint(d)
+        
+        pass
 
-
-
-
-
-
-            api_version = '1.5'
-            data = {'grant_type': 'client_credentials',                    
-                    'client_id': client_id,
-                    'client_secret': client_key,
-                    'resource': 'https://graph.windows.net/'}
-
-            response = s.post(token_url, data=data)
-            
-            d = json.loads(response.text)
-            access_token = d['access_token']
-            token_type = d['token_type']
-
-            s.headers.update({'Authorization': '%s %s' % (token_type,
-                                                          access_token)})
-
-            url = "https://graph.windows.net/%s/servicePrincipals?$filter=servicePrincipalNames/any(c:c eq '%s')&api-version=%s" % (tenant_id,
-                                                                                                                                    client_id,
-                                                                                                                                    api_version)
-            response = s.get(url)
-            d = json.loads(response.text)
-            pprint.pprint(d)
-
-            
-
-            service_principal_id = d['value'][0]['objectId']
-          
-
-
-
-
-            data = {'grant_type': 'client_credentials',                    
-                    'client_id': client_id,
-                    'client_secret': client_key,
-                    'resource': 'https://management.azure.com/'}
-
-            response = s.post(token_url, data=data)
-            
-            d = json.loads(response.text)
-            access_token = d['access_token']
-            token_type = d['token_type']
-
-            s.headers.update({'Authorization': '%s %s' % (token_type,
-                                                          access_token)})
-
-
-
-
-            api_version = '2015-05-01-preview'
-
-
-
-            url = 'https://management.azure.com/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions?api-version=%s' % (self.subscription_id,
-                                                                                                                                      api_version)
-
-            response = s.get(url)
-            d = json.loads(response.text)
-            pprint.pprint(d)
-
-
-
-
-##
-##
-##            
+    def create_role_assignment(self, *args):
+        
+# Set role assignment
 ##            role_id = '8e3af657-a8ff-443c-a75c-2fe8c4bcb635' # Owner
 ##            guid = str(uuid.uuid4())
 ##            
@@ -3619,12 +3658,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
 ##            d = json.loads(response.text)
 ##            pprint.pprint(d)
 
-
-            
-            return None        
-        except Exception as e:
-            logger(message=traceback.print_exc())
-            return False   
+        pass
 
     def list_resource_extension_versions(self, *args):
         try:            
@@ -3883,7 +3917,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
                 mpsmc = ServiceManagementClient(subscription_id=self.subscription_id,
                                                 cert_file=self.management_certificate,
-                                                request_session=self.set_proxy())
+                                                request_session=self.get_request_session())
                 
                 ServiceManagementClient.perform_put = _my_perform_put                
 
@@ -4180,31 +4214,27 @@ class AzureCloudClass(BaseCloudHarnessClass):
     def requestid(self):        
         return self.sms.requestid
 
-    def set_proxy(self):
+    def get_request_session(self):
+        s = requests.Session()
+        s.cert = self.default_management_certificate
+        if self.ssl_verify == 'True':
+            s.verify = True
+        else:
+            s.verify = False
         if self.proxy == 'True':
             import socket
-            s = socket.socket()
+            soc = socket.socket()
             try:
-                s.connect((self.proxy_host, int(self.proxy_port)))
+                soc.connect((self.proxy_host, int(self.proxy_port)))
+                s.proxies = {'http' : 'http://%s:%s' % (self.proxy_host, self.proxy_port),
+                             'https': 'https://%s:%s' % (self.proxy_host, self.proxy_port)}
             except Exception, e:
                 logger('%s: unable to connect to %s:%d %s' % (inspect.stack()[0][3],
                                                               self.proxy_host,
                                                               int(self.proxy_port),
                                                               e))
                 pass
-                return None
-
-            s = Session()
-            s.cert = self.default_management_certificate
-            if self.ssl_verify == 'True':
-                s.verify = True
-            else:
-                s.verify = False
-            s.proxies = {'http' : 'http://%s:%s' % (self.proxy_host, self.proxy_port),
-                         'https': 'https://%s:%s' % (self.proxy_host, self.proxy_port)}
-            return s
-        else:
-            return None
+        return s
 
     def sub_id(self):
         return self.sms.subscription_id
@@ -5256,7 +5286,7 @@ if __name__ == '__main__':
             sys.exit(0)
         
         az = AzureCloudClass(subscription_id=arg.subscription_id, management_certificate=arg.management_certificate)
-
+        
         for action in az.actions:
             if action['action'] == arg.action and action['collection']:
                 pprint.pprint(az.list_collection(arg.__dict__))
