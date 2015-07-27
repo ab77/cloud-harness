@@ -363,6 +363,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'list_resource_extension_versions', 'params': [], 'collection': False},
                {'action': 'list_resource_extensions', 'params': [], 'collection': True},
                {'action': 'list_resource_groups', 'params': [], 'collection': False},
+               {'action': 'list_resources', 'params': [], 'collection': False},
+               {'action': 'list_resources_in_group', 'params': ['group'], 'collection': False},               
                {'action': 'list_role_sizes', 'params': [], 'collection': True},
                {'action': 'list_service_certificates', 'params': ['service'], 'collection': False},
                {'action': 'list_storage_accounts', 'params': [], 'collection': True},
@@ -372,7 +374,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'list_virtual_network_sites', 'params': ['action'], 'collection': True},
                {'action': 'list_vm_images', 'params': [], 'collection': True},
                {'action': 'list_role_definitions', 'params': [], 'collection': False},
-               {'action': 'list_tenants', 'params': [], 'collection': False},
+               {'action': 'list_tenants', 'params': [], 'collection': False},              
+               {'action': 'list_linked_resources', 'params': [], 'collection': False},              
                {'action': 'add_resource_extension', 'params': ['service', 'deployment', 'name', 'extension'], 'collection': False},
                {'action': 'add_role', 'params': ['deployment', 'service', 'os', 'name', 'blob', 'subnet', 'account'], 'collection': False},
                {'action': 'add_data_disk', 'params': ['service', 'deployment', 'name'], 'collection': False},
@@ -420,6 +423,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'delete_role_instances', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'delete_data_disk', 'params': ['service', 'deployment', 'name', 'lun'], 'collection': False},
                {'action': 'delete_vm_image', 'params': ['name'], 'collection': False},
+               {'action': 'delete_resource_group', 'params': ['group'], 'collection': False},
                {'action': 'get_certificate_from_publish_settings', 'params': [], 'collection': False},
                {'action': 'get_storage_account_properties', 'params': [], 'collection': False},
                {'action': 'get_deployment_by_slot', 'params': ['service'], 'collection': False},
@@ -445,6 +449,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'generate_signed_blob_url', 'params': ['account', 'container', 'script'], 'collection': False},
                {'action': 'get_epacls', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'get_virtual_network_site', 'params': [], 'collection': False},
+               {'action': 'get_resource_group_properties', 'params': ['group'], 'collection': False},
                {'action': 'perform_get', 'params': ['path'], 'collection': False},
                {'action': 'perform_put', 'params': ['path', 'body'], 'collection': False},
                {'action': 'perform_delete', 'params': ['path'], 'collection': False},
@@ -472,6 +477,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'update_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
                {'action': 'update_storage_account', 'params': [], 'collection': False},
                {'action': 'update_vm_image', 'params': ['name'], 'collection': False},
+               {'action': 'update_resource_group', 'params': ['group'], 'collection': False},              
                {'action': 'upgrade_deployment', 'params': ['service', 'deployment', 'name', 'package_url', 'package_config'], 'collection': False},
                {'action': 'wait_for_operation_status', 'params': [], 'collection': False},
                {'action': 'wait_for_vm_provisioning_completion', 'params': ['service', 'deployment', 'name'], 'collection': False},
@@ -1063,6 +1069,55 @@ class AzureCloudClass(BaseCloudHarnessClass):
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
+
+    def delete_resource_group(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.api_version = self.get_params(key='api_version', params=arg, default=self.default_api_version)
+            self.group = self.get_params(key='group', params=arg, default=None)
+            async = self.get_params(key='async', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            url = 'https://management.azure.com/subscriptions/%s/resourcegroups/%s?api-version=%s' % (self.subscription_id,
+                                                                                                      self.group,
+                                                                                                      self.api_version)
+            if not readonly:
+                self.arm_sess.headers.update(self.arm_auth)
+                response = self.arm_sess.delete(url)
+
+                if verbose: pprint.pprint(response.__dict__)
+                
+                if not async:
+                    if 'location' in response.__dict__['headers'] and 'retry-after' in response.__dict__['headers']:
+                        url = response.__dict__['headers']['location']
+                        retry_after = int(response.__dict__['headers']['retry-after'])
+
+                        @retry(AssertionError, tries=3, delay=retry_after, backoff=1, cdata='method=%s()' % inspect.stack()[0][3])
+                        def delete_resource_group_retry():
+                            result = self.arm_sess.get(url)
+                            if verbose: pprint.pprint(result.__dict__)
+                            if result.status_code != 200:
+                                assert False
+                            else:
+                                return result.__dict__
+                                          
+                        return delete_resource_group_retry()
+                    else:
+                        return response.__dict__
+                else:
+                    return response.__dict__
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False        
 
     def delete_disk_blob(self, *args):
         try:
@@ -3530,7 +3585,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
     def host(self):
         return self.sms.host
-
+           
     def list_tenants(self, *args):
         try:
             if not args: return False
@@ -3543,6 +3598,54 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if verbose: pprint.pprint(self.__dict__)
             
             url = 'https://management.azure.com/tenants?api-version=%s' % self.api_version
+
+            self.arm_sess.headers.update(self.arm_auth)
+            response = self.arm_sess.get(url)
+            d = json.loads(response.text)
+            return d
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
+    def list_resources(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.api_version = self.get_params(key='api_version', params=arg, default=self.default_api_version)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+            
+            url = 'https://management.azure.com/subscriptions/%s/resources?api-version=%s' % (self.subscription_id,
+                                                                                              self.api_version)
+
+            self.arm_sess.headers.update(self.arm_auth)
+            response = self.arm_sess.get(url)
+            d = json.loads(response.text)
+            return d
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False  
+
+    def list_resources_in_group(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.api_version = self.get_params(key='api_version', params=arg, default=self.default_api_version)
+            self.group = self.get_params(key='group', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+            
+            url = 'https://management.azure.com/subscriptions/%s/resourcegroups/%s/resources?api-version=%s' % (self.subscription_id,
+                                                                                                                self.group,
+                                                                                                                self.api_version)
 
             self.arm_sess.headers.update(self.arm_auth)
             response = self.arm_sess.get(url)
@@ -3596,7 +3699,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False   
 
-    def get_subscription_properties(self, *args):
+    def list_linked_resources(self, *args):
         try:
             if not args: return False
             arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
@@ -3606,17 +3709,18 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.api_version = self.get_params(key='api_version', params=arg, default=self.default_api_version)
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
-            if verbose: pprint.pprint(self.__dict__)       
+            if verbose: pprint.pprint(self.__dict__)
 
-            url = 'https://management.azure.com/subscriptions/%s?api-version=%s' % (self.subscription_id,
-                                                                                    self.api_version)
+            url = 'https://management.azure.com/subscriptions/%s/providers/Microsoft.Resources/links?api-version=%s' % (self.subscription_id,
+                                                                                                                        self.api_version)
+
             self.arm_sess.headers.update(self.arm_auth)
             response = self.arm_sess.get(url)
             d = json.loads(response.text)
             return d
         except Exception as e:
             logger(message=traceback.print_exc())
-            return False   
+            return False
 
     def list_role_definitions(self, *args):
         try:
@@ -3641,6 +3745,52 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
 
+    def get_resource_group_properties(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.api_version = self.get_params(key='api_version', params=arg, default=self.default_api_version)
+            self.group = self.get_params(key='group', params=arg, default=None)           
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            url = 'https://management.azure.com/subscriptions/%s/resourcegroups/%s?api-version=%s' % (self.subscription_id,
+                                                                                                      self.group,
+                                                                                                      self.api_version)
+            self.arm_sess.headers.update(self.arm_auth)
+            response = self.arm_sess.get(url)
+            d = json.loads(response.text)
+            return d
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
+    def get_subscription_properties(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.api_version = self.get_params(key='api_version', params=arg, default=self.default_api_version)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)       
+
+            url = 'https://management.azure.com/subscriptions/%s?api-version=%s' % (self.subscription_id,
+                                                                                    self.api_version)
+            self.arm_sess.headers.update(self.arm_auth)
+            response = self.arm_sess.get(url)
+            d = json.loads(response.text)
+            return d
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+        
     def create_resource_group(self, *args):
         try:
             if not args: return False
@@ -3650,6 +3800,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
             self.api_version = self.get_params(key='api_version', params=arg, default=self.default_api_version)
             self.group = self.get_params(key='group', params=arg, default=None)
+            self.tag = self.get_params(key='tag', params=arg, default=None)
             self.location = self.get_params(key='location', params=arg, default=self.default_location)
             readonly = self.get_params(key='readonly', params=arg, default=None)
                         
@@ -3658,8 +3809,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
             url = 'https://management.azure.com/subscriptions/%s/resourcegroups/%s?api-version=%s' % (self.subscription_id,
                                                                                                       self.group,
                                                                                                       self.api_version)
-            data = '{"location": "%s", "tags": {"tagname1": "%s"}}' % (self.location,
-                                                                       self.group)
+            d = {'location': self.location,
+                 'tags': self.tag}
+            
+            data = json.dumps(d)
 
             if verbose: pprint.pprint(self.__dict__)
             
@@ -4751,6 +4904,39 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
 
+    def update_resource_group(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+            
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.api_version = self.get_params(key='api_version', params=arg, default=self.default_api_version)
+            self.group = self.get_params(key='group', params=arg, default=None)          
+            self.tag = self.get_params(key='tag', params=arg, default=None)
+            readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            url = 'https://management.azure.com/subscriptions/%s/resourcegroups/%s?api-version=%s' % (self.subscription_id,
+                                                                                                      self.group,
+                                                                                                      self.api_version)
+            d = {'tags': self.tag}
+            data = json.dumps(d)
+
+            if verbose: pprint.pprint(self.__dict__)
+            
+            if not readonly:
+                self.arm_sess.headers.update({'Content-Type': 'application/json'})           
+                self.arm_sess.headers.update(self.arm_auth)
+                response = self.arm_sess.patch(url, data)
+                d = json.loads(response.text)
+                return d
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
     def update_affinity_group(self, *args):
         try:
             if not args: return False
@@ -5348,6 +5534,7 @@ if __name__ == '__main__':
         for action in az.actions:
             if action['action'] == arg.action and action['collection']:
                 pprint.pprint(az.list_collection(arg.__dict__))
+
             elif action['action'] == arg.action and not action['collection']:
                 method = getattr(az, arg.action)
                 pprint.pprint(method(arg.__dict__))
