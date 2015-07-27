@@ -372,6 +372,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'list_virtual_network_sites', 'params': ['action'], 'collection': True},
                {'action': 'list_vm_images', 'params': [], 'collection': True},
                {'action': 'list_role_definitions', 'params': [], 'collection': False},
+               {'action': 'list_tenants', 'params': [], 'collection': False},
                {'action': 'add_resource_extension', 'params': ['service', 'deployment', 'name', 'extension'], 'collection': False},
                {'action': 'add_role', 'params': ['deployment', 'service', 'os', 'name', 'blob', 'subnet', 'account'], 'collection': False},
                {'action': 'add_data_disk', 'params': ['service', 'deployment', 'name'], 'collection': False},
@@ -3530,6 +3531,27 @@ class AzureCloudClass(BaseCloudHarnessClass):
     def host(self):
         return self.sms.host
 
+    def list_tenants(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.api_version = self.get_params(key='api_version', params=arg, default=self.default_api_version)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+            
+            url = 'https://management.azure.com/tenants?api-version=%s' % self.api_version
+
+            self.arm_sess.headers.update(self.arm_auth)
+            response = self.arm_sess.get(url)
+            d = json.loads(response.text)
+            return d
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
     def list_resource_groups(self, *args):
         try:
             if not args: return False
@@ -3551,7 +3573,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             return d
         except Exception as e:
             logger(message=traceback.print_exc())
-            return False   
+            return False  
 
     def list_subscriptions_arm(self, *args):
         try:
