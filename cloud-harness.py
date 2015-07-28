@@ -139,9 +139,11 @@ def args():
     azure.add_argument('--label', type=str, required=False, help='resource label')
     azure.add_argument('--description', type=str, required=False, help='resource description')
     azure.add_argument('--name', type=str, nargs='+', required=False, help='resource name(s)')
-    azure.add_argument('--group', type=str, required=False, help='group name')
+    azure.add_argument('--group', type=str, required=False, help='resource group')
     azure.add_argument('--service_principal_id', type=str, required=False, help='service principal object ID')
     azure.add_argument('--role_definition_id', type=str, required=False, help='role definition ID')
+    azure.add_argument('--namespace', type=str, required=False, default=AzureCloudClass.default_namespace, help='namespace (defualt: %s)' % AzureCloudClass.default_namespace)
+    azure.add_argument('--type', type=str, required=False, default=AzureCloudClass.default_type, help='resource type (defualt: %s)' % AzureCloudClass.default_type)    
     azure.add_argument('--dns', type=str, nargs='+', required=False, help='dns server name(s)')
     azure.add_argument('--ipaddr', type=str, nargs='+', required=False, help='reserved IP address name or DNS server IP address(es)')
     azure.add_argument('--blob', type=str, nargs='+', required=False, help='disk image blob name(s)')
@@ -219,6 +221,7 @@ def args():
     azure.add_argument('--docker_registry_server', type=str, required=False, help='Docker registry server (default: DockerHub)')
     azure.add_argument('--docker_compose', type=str, required=False, default=AzureCloudClass.default_docker_compose, help='Docker compose.yaml file (default: %s)' % AzureCloudClass.default_docker_compose)
     azure.add_argument('--dsc_module', type=str, required=False, default=AzureCloudClass.default_dsc_module, help='DSC module (default: %s)' % AzureCloudClass.default_dsc_module)
+    azure.add_argument('--puppet_master', type=str, required=False, default=AzureCloudClass.default_puppet_master, help='Puppet Master IP or host-name (default: %s)' % AzureCloudClass.default_puppet_master)
     
     args = parser.parse_args()
     logger(message=str(args))
@@ -276,6 +279,7 @@ class BaseCloudHarnessClass():
     default_docker_server_key = None
     default_docker_compose = None
     default_dsc_module = None
+    default_puppet_master = None    
     default_windows_customscript_name = None
     default_linux_customscript_name = None
     default_remote_subnets = None
@@ -325,6 +329,7 @@ class BaseCloudHarnessClass():
         default_chef_delete_config = dict(cp.items('ChefClient'))['chef_delete_config']
         default_chef_ssl_verify_mode = dict(cp.items('ChefClient'))['chef_ssl_verify_mode']
         default_chef_verify_api_cert = dict(cp.items('ChefClient'))['chef_verify_api_cert']
+        default_puppet_master = dict(cp.items('PuppetEnterpriseAgent'))['puppet_master']
         default_docker_port = dict(cp.items('DockerExtension'))['docker_port']
         default_docker_options = dict(cp.items('DockerExtension'))['docker_options']
         default_docker_username = dict(cp.items('DockerExtension'))['docker_username']
@@ -363,8 +368,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'list_resource_extension_versions', 'params': [], 'collection': False},
                {'action': 'list_resource_extensions', 'params': [], 'collection': True},
                {'action': 'list_resource_groups', 'params': [], 'collection': False},
-               {'action': 'list_resources', 'params': [], 'collection': False},
-               {'action': 'list_resources_in_group', 'params': ['group'], 'collection': False},               
+               {'action': 'list_resources_for_subscription', 'params': [], 'collection': False},
+               {'action': 'list_resources_for_group', 'params': ['group'], 'collection': False},               
                {'action': 'list_role_sizes', 'params': [], 'collection': True},
                {'action': 'list_service_certificates', 'params': ['service'], 'collection': False},
                {'action': 'list_storage_accounts', 'params': [], 'collection': True},
@@ -376,6 +381,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'list_role_definitions', 'params': [], 'collection': False},
                {'action': 'list_tenants', 'params': [], 'collection': False},              
                {'action': 'list_linked_resources', 'params': [], 'collection': False},              
+               {'action': 'list_resource_providers', 'params': [], 'collection': False},
+               {'action': 'list_locations_arm', 'params': [], 'collection': False},         
                {'action': 'add_resource_extension', 'params': ['service', 'deployment', 'name', 'extension'], 'collection': False},
                {'action': 'add_role', 'params': ['deployment', 'service', 'os', 'name', 'blob', 'subnet', 'account'], 'collection': False},
                {'action': 'add_data_disk', 'params': ['service', 'deployment', 'name'], 'collection': False},
@@ -391,10 +398,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'build_ospatching_resource_extension', 'params': ['os'], 'collection': False},
                {'action': 'build_docker_resource_extension', 'params': ['os'], 'collection': False},
                {'action': 'build_dsc_resource_extension', 'params': ['os', 'dsc_module'], 'collection': False},
+               {'action': 'build_puppet_resource_extension', 'params': [], 'collection': False},
                {'action': 'build_resource_extension_dict', 'params': ['extension', 'publisher', 'version'], 'collection': False},
                {'action': 'build_resource_extensions_xml_from_dict', 'params': ['rextrs'], 'collection': False},
                {'action': 'check_hosted_service_name_availability', 'params': ['service'], 'collection': False},
                {'action': 'check_storage_account_name_availability', 'params': ['account'], 'collection': False},
+               {'action': 'check_resource_name', 'params': ['name'], 'collection': False},
                {'action': 'create_affinity_group', 'params': ['name'], 'collection': False},
                {'action': 'create_hosted_service', 'params': ['service', 'label'], 'collection': False},
                {'action': 'create_virtual_machine_deployment', 'params': ['deployment', 'service', 'os', 'name', 'blob', 'subnet', 'account', 'network'], 'collection': False},
@@ -446,10 +455,12 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'get_objs_for_role', 'params': ['deployment', 'service', 'name'], 'collection': False},
                {'action': 'get_pub_key_and_thumbprint_from_x509_cert', 'params': ['certificate', 'algorithm'], 'collection': False},
                {'action': 'get_service_principal_id_by_aad_app_name', 'params': [], 'collection': False},
-               {'action': 'generate_signed_blob_url', 'params': ['account', 'container', 'script'], 'collection': False},
                {'action': 'get_epacls', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'get_virtual_network_site', 'params': [], 'collection': False},
                {'action': 'get_resource_group_properties', 'params': ['group'], 'collection': False},
+               {'action': 'get_resource_provider_properties', 'params': [], 'collection': False},               
+               {'action': 'generate_signed_blob_url', 'params': ['account', 'container', 'script'], 'collection': False},
+               {'action': 'move_resources', 'params': [], 'collection': False},
                {'action': 'perform_get', 'params': ['path'], 'collection': False},
                {'action': 'perform_put', 'params': ['path', 'body'], 'collection': False},
                {'action': 'perform_delete', 'params': ['path'], 'collection': False},
@@ -464,6 +475,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'regenerate_storage_account_keys', 'params': ['account'], 'collection': False},
                {'action': 'reimage_role_instance', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'rollback_update_or_upgrade', 'params': ['service', 'deployment'], 'collection': False},
+               {'action': 'register_subscription_with_resource_provider', 'params': [], 'collection': False},               
                {'action': 'swap_deployment', 'params': ['service', 'deployment', 'production_deployment'], 'collection': False},
                {'action': 'shutdown_role', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'shutdown_roles', 'params': ['service', 'deployment', 'name'], 'collection': False},
@@ -479,6 +491,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'update_vm_image', 'params': ['name'], 'collection': False},
                {'action': 'update_resource_group', 'params': ['group'], 'collection': False},              
                {'action': 'upgrade_deployment', 'params': ['service', 'deployment', 'name', 'package_url', 'package_config'], 'collection': False},
+               {'action': 'unregister_subscription_with_resource_provider', 'params': [], 'collection': False},                              
                {'action': 'wait_for_operation_status', 'params': [], 'collection': False},
                {'action': 'wait_for_vm_provisioning_completion', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'walk_upgrade_domain', 'params': ['service', 'deployment', 'upgrade_domain'], 'collection': False},
@@ -537,6 +550,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
     default_key_type = 'Primary'
     default_mode = 'auto'
     default_blobtype = 'page'
+    default_namespace = 'Microsoft.Resources'
+    default_type = 'Microsoft.ClassicCompute/domainNames'
 
     def __init__(self, subscription_id=None, management_certificate=None,
                  aad_app=None, client_id=None, client_key=None, tenant_id=None):
@@ -585,7 +600,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             if not self.aad_app or not self.client_id or not self.client_key or not self.tenant_id:
                 logger('%s: Azure Resource Management APIs authentication credentials missing' % inspect.stack()[0][3])
-                self.access_token = None
+                self.arm_sess = None
                 pass
             else:
                 token_url = 'https://login.microsoftonline.com/%s/oauth2/token' % self.tenant_id
@@ -629,10 +644,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
             url = "https://graph.windows.net/%s/servicePrincipals?$filter=servicePrincipalNames/any(c:c eq '%s')&api-version=%s" % (self.tenant_id,
                                                                                                                                     self.client_id,
                                                                                                                                     self.api_version)
-            self.arm_sess.headers.update(self.graph_auth)
-            response = self.arm_sess.get(url)
-            d = json.loads(response.text)
-            return d['value'][0]['objectId']
+            if self.arm_sess:
+                self.arm_sess.headers.update(self.graph_auth)
+                response = self.arm_sess.get(url)
+                d = json.loads(response.text)
+                return d['value'][0]['objectId']
+            else:
+                return False
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -669,6 +687,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     rextrs.append(self.build_docker_resource_extension(arg))
                 if extension == 'DSC':
                     rextrs.append(self.build_dsc_resource_extension(arg))                    
+                if extension == 'PuppetEnterpriseAgent':
+                    rextrs.append(self.build_puppet_resource_extension(arg))                    
             arg['rextrs'] = self.build_resource_extensions_xml_from_dict(rextrs=rextrs)
 
             if verbose: pprint.pprint(self.__dict__)
@@ -825,6 +845,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         rextrs.append(self.build_docker_resource_extension(arg))
                     if extension == 'DSC':
                         rextrs.append(self.build_dsc_resource_extension(arg))
+                    if extension == 'PuppetEnterpriseAgent':
+                        rextrs.append(self.build_puppet_resource_extension(arg))                    
                 self.rextrs = self.build_resource_extensions_xml_from_dict(rextrs=rextrs)
             else:
                 self.rextrs = self.get_params(key='rextrs', params=args, default=None)
@@ -1088,33 +1110,36 @@ class AzureCloudClass(BaseCloudHarnessClass):
             url = 'https://management.azure.com/subscriptions/%s/resourcegroups/%s?api-version=%s' % (self.subscription_id,
                                                                                                       self.group,
                                                                                                       self.api_version)
-            if not readonly:
-                self.arm_sess.headers.update(self.arm_auth)
-                response = self.arm_sess.delete(url)
+            if self.arm_sess:
+                if not readonly:
+                    self.arm_sess.headers.update(self.arm_auth)
+                    response = self.arm_sess.delete(url)
 
-                if verbose: pprint.pprint(response.__dict__)
-                
-                if not async:
-                    if 'location' in response.__dict__['headers'] and 'retry-after' in response.__dict__['headers']:
-                        url = response.__dict__['headers']['location']
-                        retry_after = int(response.__dict__['headers']['retry-after'])
+                    if verbose: pprint.pprint(response.__dict__)
+                    
+                    if not async:
+                        if 'location' in response.__dict__['headers'] and 'retry-after' in response.__dict__['headers']:
+                            url = response.__dict__['headers']['location']
+                            retry_after = int(response.__dict__['headers']['retry-after'])
 
-                        @retry(AssertionError, tries=3, delay=retry_after, backoff=1, cdata='method=%s()' % inspect.stack()[0][3])
-                        def delete_resource_group_retry():
-                            result = self.arm_sess.get(url)
-                            if verbose: pprint.pprint(result.__dict__)
-                            if result.status_code != 200:
-                                assert False
-                            else:
-                                return result.__dict__
-                                          
-                        return delete_resource_group_retry()
+                            @retry(AssertionError, tries=3, delay=retry_after, backoff=1, cdata='method=%s()' % inspect.stack()[0][3])
+                            def delete_resource_group_retry():
+                                result = self.arm_sess.get(url)
+                                if verbose: pprint.pprint(result.__dict__)
+                                if result.status_code != 200:
+                                    assert False
+                                else:
+                                    return result.__dict__
+                                              
+                            return delete_resource_group_retry()
+                        else:
+                            return response.__dict__
                     else:
                         return response.__dict__
                 else:
-                    return response.__dict__
+                    logger('%s: limited to read-only operations' % inspect.stack()[0][3])
             else:
-                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+                return False                    
         except Exception as e:
             logger(message=traceback.print_exc())
             return False        
@@ -1887,8 +1912,33 @@ class AzureCloudClass(BaseCloudHarnessClass):
     def build_octopusdeploy_resource_extension(self):
         pass
    
-    def build_puppet_resource_extension(self):
-        pass
+    def build_puppet_resource_extension(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.puppet_master = self.get_params(key='puppet_master', params=arg, default=self.default_puppet_master)
+
+            pub_config = dict()
+            pri_config = dict()
+            pub_config_key = 'PuppetEnterpriseAgentPublicConfigParameter'
+            pri_config_key = 'PuppetEnterpriseAgentPrivateConfigParameter'
+            self.extension = 'PuppetEnterpriseAgent'
+            self.publisher = 'PuppetLabs'
+            rexts = self.list_resource_extension_versions({'publisher': self.publisher, 'extension': self.extension, 'verbose': False})
+            version = None
+            for rext in rexts:
+                version = rext['version']                
+            self.version = version.split('.')[0] + '.*'
+            pub_config['timestamp'] = '%s' % timegm(time.gmtime())                    
+            pri_config['PUPPET_MASTER_SERVER'] = self.puppet_master
+            return self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
+                                                      pub_config_key=pub_config_key, pub_config=pub_config,              
+                                                      pri_config_key=pri_config_key, pri_config=pri_config)
+        except Exception as e:            
+            logger(message=traceback.print_exc())
+            return False
 
     def build_logcollector_resource_extension(self):
         pass
@@ -1917,6 +1967,39 @@ class AzureCloudClass(BaseCloudHarnessClass):
     def content_type(self):
         return self.sms.content_type
 
+    def check_resource_name(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+            
+            self.name = self.get_params(key='name', params=arg, default=None)
+            if isinstance(self.name, list): self.name = self.name[0]
+            self.type = self.get_params(key='type', params=arg, default=self.default_type)
+            self.api_version = self.get_params(key='api_version', params=arg, default=self.default_api_version)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            url = 'https://management.azure.com/providers/microsoft.resources/checkresourcename?api-version=%s' % self.api_version
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            d = {'Name': self.name,
+                 'Type': self.type}
+            
+            data = json.dumps(d)
+
+            if self.arm_sess:            
+                self.arm_sess.headers.update({'Content-Type': 'application/json'})           
+                self.arm_sess.headers.update(self.arm_auth)
+                response = self.arm_sess.post(url, data)
+                d = json.loads(response.text)
+                return d
+            else:
+                return False
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+        
     def check_hosted_service_name_availability(self, *args):
         try:
             if not args: return False
@@ -2123,6 +2206,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         rextrs.append(self.build_docker_resource_extension(arg))
                     if extension == 'DSC':
                         rextrs.append(self.build_docker_resource_extension(arg))
+                    if extension == 'PuppetEnterpriseAgent':
+                        rextrs.append(self.build_puppet_resource_extension(arg))                    
                 self.rextrs = self.build_resource_extensions_xml_from_dict(rextrs=rextrs)
             else:
                 self.rextrs = self.get_params(key='rextrs', params=args, default=None)
@@ -3599,15 +3684,18 @@ class AzureCloudClass(BaseCloudHarnessClass):
             
             url = 'https://management.azure.com/tenants?api-version=%s' % self.api_version
 
-            self.arm_sess.headers.update(self.arm_auth)
-            response = self.arm_sess.get(url)
-            d = json.loads(response.text)
-            return d
+            if self.arm_sess:
+                self.arm_sess.headers.update(self.arm_auth)
+                response = self.arm_sess.get(url)
+                d = json.loads(response.text)
+                return d
+            else:
+                return False
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
 
-    def list_resources(self, *args):
+    def list_resources_for_subscription(self, *args):
         try:
             if not args: return False
             arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
@@ -3622,15 +3710,18 @@ class AzureCloudClass(BaseCloudHarnessClass):
             url = 'https://management.azure.com/subscriptions/%s/resources?api-version=%s' % (self.subscription_id,
                                                                                               self.api_version)
 
-            self.arm_sess.headers.update(self.arm_auth)
-            response = self.arm_sess.get(url)
-            d = json.loads(response.text)
-            return d
+            if self.arm_sess:
+                self.arm_sess.headers.update(self.arm_auth)
+                response = self.arm_sess.get(url)
+                d = json.loads(response.text)
+                return d
+            else:
+                return False
         except Exception as e:
             logger(message=traceback.print_exc())
             return False  
 
-    def list_resources_in_group(self, *args):
+    def list_resources_for_group(self, *args):
         try:
             if not args: return False
             arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
@@ -3646,11 +3737,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
             url = 'https://management.azure.com/subscriptions/%s/resourcegroups/%s/resources?api-version=%s' % (self.subscription_id,
                                                                                                                 self.group,
                                                                                                                 self.api_version)
-
-            self.arm_sess.headers.update(self.arm_auth)
-            response = self.arm_sess.get(url)
-            d = json.loads(response.text)
-            return d
+            if self.arm_sess:
+                self.arm_sess.headers.update(self.arm_auth)
+                response = self.arm_sess.get(url)
+                d = json.loads(response.text)
+                return d
+            else:
+                return False        
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -3669,11 +3762,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
             
             url = 'https://management.azure.com/subscriptions/%s/resourcegroups?api-version=%s' % (self.subscription_id,
                                                                                                    self.api_version)
-
-            self.arm_sess.headers.update(self.arm_auth)
-            response = self.arm_sess.get(url)
-            d = json.loads(response.text)
-            return d
+            if self.arm_sess:
+                self.arm_sess.headers.update(self.arm_auth)
+                response = self.arm_sess.get(url)
+                d = json.loads(response.text)
+                return d
+            else:
+                return False
         except Exception as e:
             logger(message=traceback.print_exc())
             return False  
@@ -3691,13 +3786,69 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if verbose: pprint.pprint(self.__dict__)       
 
             url = 'https://management.azure.com/subscriptions?api-version=%s' % self.api_version
-            self.arm_sess.headers.update(self.arm_auth)
-            response = self.arm_sess.get(url)
-            d = json.loads(response.text)
-            return d
+
+            if self.arm_sess:           
+                self.arm_sess.headers.update(self.arm_auth)
+                response = self.arm_sess.get(url)
+                d = json.loads(response.text)
+                return d
+            else:
+                return False
         except Exception as e:
             logger(message=traceback.print_exc())
-            return False   
+            return False
+
+    def list_locations_arm(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.namespace = self.get_params(key='namespace', params=arg, default=self.default_namespace)
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.api_version = self.get_params(key='api_version', params=arg, default=self.default_api_version)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)       
+
+            url = 'https://management.azure.com/providers/%s?api-version=%s' % (self.namespace,
+                                                                                self.api_version)
+            if self.arm_sess:           
+                self.arm_sess.headers.update(self.arm_auth)
+                response = self.arm_sess.get(url)
+                d = json.loads(response.text)
+                return d
+            else:
+                return False
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
+    def list_resource_providers(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.api_version = self.get_params(key='api_version', params=arg, default=self.default_api_version)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            url = 'https://management.azure.com/subscriptions/%s/providers?api-version=%s' % (self.subscription_id,
+                                                                                              self.api_version)
+
+            if self.arm_sess:           
+                self.arm_sess.headers.update(self.arm_auth)
+                response = self.arm_sess.get(url)
+                d = json.loads(response.text)
+                return d
+            else:
+                return False
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False        
 
     def list_linked_resources(self, *args):
         try:
@@ -3713,11 +3864,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             url = 'https://management.azure.com/subscriptions/%s/providers/Microsoft.Resources/links?api-version=%s' % (self.subscription_id,
                                                                                                                         self.api_version)
-
-            self.arm_sess.headers.update(self.arm_auth)
-            response = self.arm_sess.get(url)
-            d = json.loads(response.text)
-            return d
+            if self.arm_sess:           
+                self.arm_sess.headers.update(self.arm_auth)
+                response = self.arm_sess.get(url)
+                d = json.loads(response.text)
+                return d
+            else:
+                return False
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -3736,11 +3889,40 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             url = 'https://management.azure.com/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions?api-version=%s' % (self.subscription_id,
                                                                                                                                       self.api_version)
+            if self.arm_sess:
+                self.arm_sess.headers.update(self.arm_auth)
+                response = self.arm_sess.get(url)
+                d = json.loads(response.text)
+                return d
+            else:
+                return False
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
 
-            self.arm_sess.headers.update(self.arm_auth)
-            response = self.arm_sess.get(url)
-            d = json.loads(response.text)
-            return d
+    def get_resource_provider_properties(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.namespace = self.get_params(key='namespace', params=arg, default=None)
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_namespace)
+            self.api_version = self.get_params(key='api_version', params=arg, default=self.default_api_version)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+
+            url = 'https://management.azure.com/subscriptions/%s/providers/%s?api-version=%s' % (self.subscription_id,
+                                                                                                 self.namespace,
+                                                                                                 self.api_version)
+            if self.arm_sess:
+                self.arm_sess.headers.update(self.arm_auth)
+                response = self.arm_sess.get(url)
+                d = json.loads(response.text)
+                return d
+            else:
+                return False
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -3761,10 +3943,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
             url = 'https://management.azure.com/subscriptions/%s/resourcegroups/%s?api-version=%s' % (self.subscription_id,
                                                                                                       self.group,
                                                                                                       self.api_version)
-            self.arm_sess.headers.update(self.arm_auth)
-            response = self.arm_sess.get(url)
-            d = json.loads(response.text)
-            return d
+            if self.arm_sess:
+                self.arm_sess.headers.update(self.arm_auth)
+                response = self.arm_sess.get(url)
+                d = json.loads(response.text)
+                return d
+            else:
+                return False
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -3783,10 +3968,13 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             url = 'https://management.azure.com/subscriptions/%s?api-version=%s' % (self.subscription_id,
                                                                                     self.api_version)
-            self.arm_sess.headers.update(self.arm_auth)
-            response = self.arm_sess.get(url)
-            d = json.loads(response.text)
-            return d
+            if self.arm_sess:
+                self.arm_sess.headers.update(self.arm_auth)
+                response = self.arm_sess.get(url)
+                d = json.loads(response.text)
+                return d
+            else:
+                return False        
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -3815,15 +4003,18 @@ class AzureCloudClass(BaseCloudHarnessClass):
             data = json.dumps(d)
 
             if verbose: pprint.pprint(self.__dict__)
-            
-            if not readonly:
-                self.arm_sess.headers.update({'Content-Type': 'application/json'})           
-                self.arm_sess.headers.update(self.arm_auth)
-                response = self.arm_sess.put(url, data)
-                d = json.loads(response.text)
-                return d
+
+            if self.arm_sess:            
+                if not readonly:
+                    self.arm_sess.headers.update({'Content-Type': 'application/json'})           
+                    self.arm_sess.headers.update(self.arm_auth)
+                    response = self.arm_sess.put(url, data)
+                    d = json.loads(response.text)
+                    return d
+                else:
+                    logger('%s: limited to read-only operations' % inspect.stack()[0][3])
             else:
-                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+                return False
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -3859,14 +4050,17 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             if verbose: pprint.pprint(self.__dict__)
             
-            if not readonly:
-                self.arm_sess.headers.update({'Content-Type': 'application/json'})           
-                self.arm_sess.headers.update(self.arm_auth)
-                response = self.arm_sess.put(url, data)
-                d = json.loads(response.text)
-                return d
+            if self.arm_sess:            
+                if not readonly:
+                    self.arm_sess.headers.update({'Content-Type': 'application/json'})           
+                    self.arm_sess.headers.update(self.arm_auth)
+                    response = self.arm_sess.put(url, data)
+                    d = json.loads(response.text)
+                    return d
+                else:
+                    logger('%s: limited to read-only operations' % inspect.stack()[0][3])
             else:
-                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+                return False
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -3997,6 +4191,9 @@ class AzureCloudClass(BaseCloudHarnessClass):
         except Exception as e:
             logger(message=traceback.print_exc())
             return False        
+
+    def move_resources(self, *args):
+        pass
 
     def perform_get(self, **kwargs):
         try:
@@ -4378,6 +4575,38 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
             else:
                 logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
+    def register_subscription_with_resource_provider(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+            
+            self.namespace = self.get_params(key='namespace', params=arg, default=self.default_namespace)
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.api_version = self.get_params(key='api_version', params=arg, default=self.default_api_version)
+            readonly = self.get_params(key='readonly', params=arg, default=None)                        
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            url = 'https://management.azure.com/subscriptions/%s/providers/%s/register?api-version=%s' % (self.subscription_id,
+                                                                                                          self.namespace,
+                                                                                                          self.api_version)
+            if verbose: pprint.pprint(self.__dict__)
+
+            if self.arm_sess:            
+                if not readonly:
+                    self.arm_sess.headers.update({'Content-Type': 'application/json'})           
+                    self.arm_sess.headers.update(self.arm_auth)
+                    response = self.arm_sess.post(url)
+                    d = json.loads(response.text)
+                    return d
+                else:
+                    logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+            else:
+                return False
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -4904,6 +5133,38 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False
 
+    def unregister_subscription_with_resource_provider(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+            
+            self.namespace = self.get_params(key='namespace', params=arg, default=self.default_namespace)
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.api_version = self.get_params(key='api_version', params=arg, default=self.default_api_version)
+            readonly = self.get_params(key='readonly', params=arg, default=None)                        
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            url = 'https://management.azure.com/subscriptions/%s/providers/%s/unregister?api-version=%s' % (self.subscription_id,
+                                                                                                            self.namespace,
+                                                                                                            self.api_version)
+            if verbose: pprint.pprint(self.__dict__)
+
+            if self.arm_sess:            
+                if not readonly:
+                    self.arm_sess.headers.update({'Content-Type': 'application/json'})           
+                    self.arm_sess.headers.update(self.arm_auth)
+                    response = self.arm_sess.post(url)
+                    d = json.loads(response.text)
+                    return d
+                else:
+                    logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+            else:
+                return False
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
     def update_resource_group(self, *args):
         try:
             if not args: return False
@@ -4924,15 +5185,18 @@ class AzureCloudClass(BaseCloudHarnessClass):
             data = json.dumps(d)
 
             if verbose: pprint.pprint(self.__dict__)
-            
-            if not readonly:
-                self.arm_sess.headers.update({'Content-Type': 'application/json'})           
-                self.arm_sess.headers.update(self.arm_auth)
-                response = self.arm_sess.patch(url, data)
-                d = json.loads(response.text)
-                return d
+
+            if self.arm_sess:
+                if not readonly:
+                    self.arm_sess.headers.update({'Content-Type': 'application/json'})           
+                    self.arm_sess.headers.update(self.arm_auth)
+                    response = self.arm_sess.patch(url, data)
+                    d = json.loads(response.text)
+                    return d
+                else:
+                    logger('%s: limited to read-only operations' % inspect.stack()[0][3])
             else:
-                logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+                return False
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
