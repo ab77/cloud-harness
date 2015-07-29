@@ -193,7 +193,7 @@ def args():
     azure.add_argument('--lun', type=str, required=False, help='logical (disk) unit number (LUN)')
     azure.add_argument('--location', type=str, required=False, help='resource location')
     azure.add_argument('--publisher', type=str, required=False, default=AzureCloudClass.default_publisher, help='resource extension publisher name (default: %s)' % AzureCloudClass.default_publisher)
-    azure.add_argument('--extension', type=str, nargs='+', required=False, default=AzureCloudClass.default_extension, help='resource extension name(s) (default: %s)' % AzureCloudClass.default_extension)
+    azure.add_argument('--extension', type=str, nargs='+', required=False, default=AzureCloudClass.default_extension, choices=['ChefClient', 'CustomScript', 'VMAccessAgent', 'OSPatching', 'DockerExtension', 'DSC', 'PuppetEnterpriseAgent', 'BGInfo', 'OctopusDeploy'], help='resource extension name(s) (default: %s)' % AzureCloudClass.default_extension)
     azure.add_argument('--vmaop', type=str, required=False, default=AzureCloudClass.default_vmaop, choices=['ResetRDPConfig', 'ResetSSHKey', 'ResetSSHKeyAndPassword', 'ResetPassword', 'DeleteUser', 'ResetSSHConfig'], help='VMAccess operation (default: %s)' % AzureCloudClass.default_vmaop)
     azure.add_argument('--patching_disabled', action='store_true', required=False, help='OSPatching disable patching')
     azure.add_argument('--patching_stop', action='store_true', required=False, help='OSPatching stop patching')
@@ -279,7 +279,12 @@ class BaseCloudHarnessClass():
     default_docker_server_key = None
     default_docker_compose = None
     default_dsc_module = None
-    default_puppet_master = None    
+    default_puppet_master = None
+    default_octopus_server_url = None
+    default_octopus_api_key = None
+    default_octopus_environments = None
+    default_octopus_roles = None
+    default_octopus_port = None
     default_windows_customscript_name = None
     default_linux_customscript_name = None
     default_remote_subnets = None
@@ -340,6 +345,11 @@ class BaseCloudHarnessClass():
         default_docker_server_key = dict(cp.items('DockerExtension'))['docker_server_key']
         default_docker_compose = dict(cp.items('DockerExtension'))['docker_compose']
         default_dsc_module = dict(cp.items('DSCExtension'))['dsc_module']
+        default_octopus_server_url = dict(cp.items('OctopusDeploy'))['octopus_server_url']
+        default_octopus_api_key = dict(cp.items('OctopusDeploy'))['octopus_api_key']
+        default_octopus_environments = dict(cp.items('OctopusDeploy'))['octopus_environments']
+        default_octopus_roles = dict(cp.items('OctopusDeploy'))['octopus_roles']
+        default_octopus_port = dict(cp.items('OctopusDeploy'))['octopus_port']
         default_patching_healthy_test_script = dict(cp.items('OSPatchingExtensionForLinux'))['patching_healthy_test_script']        
         default_patching_idle_test_script = dict(cp.items('OSPatchingExtensionForLinux'))['patching_idle_test_script']        
     except:
@@ -399,6 +409,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'build_docker_resource_extension', 'params': ['os'], 'collection': False},
                {'action': 'build_dsc_resource_extension', 'params': ['os', 'dsc_module'], 'collection': False},
                {'action': 'build_puppet_resource_extension', 'params': [], 'collection': False},
+               {'action': 'build_bginfo_resource_extension', 'params': [], 'collection': False},
+               {'action': 'build_octopusdeploy_resource_extension', 'params': [], 'collection': False},
                {'action': 'build_resource_extension_dict', 'params': ['extension', 'publisher', 'version'], 'collection': False},
                {'action': 'build_resource_extensions_xml_from_dict', 'params': ['rextrs'], 'collection': False},
                {'action': 'check_hosted_service_name_availability', 'params': ['service'], 'collection': False},
@@ -519,6 +531,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                       'Protocol': 'tcp'},
                                      {'LocalPort': '3389',
                                       'Name': 'Remote Desktop',
+                                      'Port': str(randint(49152,65535)),
+                                      'Protocol': 'tcp'},
+                                     {'LocalPort': '10933',
+                                      'Name': 'TentacleIn',
                                       'Port': str(randint(49152,65535)),
                                       'Protocol': 'tcp'}],
                          'Linux': [{'LocalPort': '22',
@@ -689,6 +705,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     rextrs.append(self.build_dsc_resource_extension(arg))                    
                 if extension == 'PuppetEnterpriseAgent':
                     rextrs.append(self.build_puppet_resource_extension(arg))                    
+                if extension == 'BGInfo':
+                    rextrs.append(self.build_bginfo_resource_extension(arg))                    
+                if extension == 'OctopusDeploy':
+                    rextrs.append(self.build_octopusdeploy_resource_extension(arg))
             arg['rextrs'] = self.build_resource_extensions_xml_from_dict(rextrs=rextrs)
 
             if verbose: pprint.pprint(self.__dict__)
@@ -847,6 +867,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         rextrs.append(self.build_dsc_resource_extension(arg))
                     if extension == 'PuppetEnterpriseAgent':
                         rextrs.append(self.build_puppet_resource_extension(arg))                    
+                    if extension == 'BGInfo':
+                        rextrs.append(self.build_bginfo_resource_extension(arg))                    
+                    if extension == 'OctopusDeploy':
+                        rextrs.append(self.build_octopusdeploy_resource_extension(arg))
                 self.rextrs = self.build_resource_extensions_xml_from_dict(rextrs=rextrs)
             else:
                 self.rextrs = self.get_params(key='rextrs', params=args, default=None)
@@ -1443,7 +1467,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     pri_config = b64encode(pri_config)
                 rext['Parameters'].append({'Key': pri_config_key,
                                            'Type': 'Private',
-                                           'Value': pri_config})                    
+                                           'Value': pri_config})
             return rext
         except Exception as e:
             logger(message=traceback.print_exc())
@@ -1499,7 +1523,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 for rext in rexts:
                     version = rext['version']                
                 self.version = version.split('.')[0] + '.*'
-                rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
+                rext = self.build_resource_extension_dict(extension=self.extension, publisher=self.publisher, version=self.version,
                                                           pub_config_key=pub_config_key, pri_config_key=pub_config_key,
                                                           pub_config=pub_config, pri_config=pri_config)
             if self.os == 'Linux':
@@ -1509,7 +1533,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 for rext in rexts:
                     version = rext['version']
                 self.version = version.split('.')[0] + '.*'
-                rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
+                rext = self.build_resource_extension_dict(extension=self.extension, publisher=self.publisher, version=self.version,
                                                           pub_config_key=pub_config_key, pri_config_key=pub_config_key,
                                                           pub_config=pub_config, pri_config=pri_config)
             return rext
@@ -1547,7 +1571,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 self.version = version.split('.')[0] + '.*'
                 pub_config['commandToExecute'] = 'powershell.exe -ExecutionPolicy Unrestricted -File %s' % self.script
                 pub_config['timestamp'] = '%s' % timegm(time.gmtime())                    
-                rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
+                rext = self.build_resource_extension_dict(extension=self.extension, publisher=self.publisher, version=self.version,
                                                           pub_config_key=pub_config_key, pub_config=pub_config)
             if self.os == 'Linux':
                 pri_config_key = 'CustomScriptExtensionPrivateConfigParameter'
@@ -1572,7 +1596,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 pri_config['storageAccountName'] = self.account
                 pri_config['storageAccountKey'] = self.get_storage_account_keys({'account': self.account,
                                                                                  'verbose': False})['storage_service_keys']['primary']                
-                rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
+                rext = self.build_resource_extension_dict(extension=self.extension, publisher=self.publisher, version=self.version,
                                                           pub_config_key=pub_config_key, pub_config=pub_config,
                                                           pri_config_key=pri_config_key, pri_config=pri_config)
                 
@@ -1625,7 +1649,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     logger(pprint.pprint(self.__dict__))
                     logger('%s is not a supported VMAccess operation' % self.vmaop)
                     sys.exit(1)
-                rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
+                rext = self.build_resource_extension_dict(extension=self.extension, publisher=self.publisher, version=self.version,
                                                           pub_config_key=pub_config_key, pub_config=pub_config,
                                                           pri_config_key=pri_config_key, pri_config=pri_config)
                 
@@ -1674,7 +1698,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     logger('%s is not a supported VMAccess operation' % self.vmaop)
                     sys.exit(1)
                     
-                rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
+                rext = self.build_resource_extension_dict(extension=self.extension, publisher=self.publisher, version=self.version,
                                                           pri_config_key=pri_config_key, pri_config=pri_config)
             return rext
         except Exception as e:
@@ -1738,7 +1762,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 pri_config['storageAccountName'] = self.account
                 pri_config['storageAccountKey'] = self.get_storage_account_keys({'account': self.account,
                                                                                  'verbose': False})['storage_service_keys']['primary']
-                rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
+                rext = self.build_resource_extension_dict(extension=self.extension, publisher=self.publisher, version=self.version,
                                                           pub_config_key=pub_config_key, pub_config=pub_config,
                                                           pri_config_key=pri_config_key, pri_config=pri_config)
             return rext
@@ -1831,7 +1855,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 pri_config['login']['password'] = self.docker_password
                 pri_config['login']['email'] = self.docker_email
                     
-                rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
+                rext = self.build_resource_extension_dict(extension=self.extension, publisher=self.publisher, version=self.version,
                                                           pub_config_key=pub_config_key, pub_config=pub_config,
                                                           pri_config_key=pri_config_key, pri_config=pri_config)
             return rext
@@ -1895,7 +1919,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 
                 pri_config['DataBlobUri'] = None
                 pri_config['Items'] = None
-                rext = self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
+                rext = self.build_resource_extension_dict(extension=self.extension, publisher=self.publisher, version=self.version,
                                                           pub_config_key=pub_config_key, pub_config=pub_config,
                                                           pri_config_key=pri_config_key, pri_config=pri_config)
             if self.os == 'Linux':
@@ -1908,9 +1932,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
         except Exception as e:            
             logger(message=traceback.print_exc())
             return False
-    
-    def build_octopusdeploy_resource_extension(self):
-        pass
    
     def build_puppet_resource_extension(self, *args):
         try:
@@ -1933,13 +1954,86 @@ class AzureCloudClass(BaseCloudHarnessClass):
             self.version = version.split('.')[0] + '.*'
             pub_config['timestamp'] = '%s' % timegm(time.gmtime())                    
             pri_config['PUPPET_MASTER_SERVER'] = self.puppet_master
-            return self.build_resource_extension_dict(os=self.os, extension=self.extension, publisher=self.publisher, version=self.version,
+            return self.build_resource_extension_dict(extension=self.extension, publisher=self.publisher, version=self.version,
                                                       pub_config_key=pub_config_key, pub_config=pub_config,              
                                                       pri_config_key=pri_config_key, pri_config=pri_config)
         except Exception as e:            
             logger(message=traceback.print_exc())
             return False
 
+    def build_bginfo_resource_extension(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.extension = 'BGInfo'
+            self.publisher = 'Microsoft.Compute'
+            rexts = self.list_resource_extension_versions({'publisher': self.publisher,
+                                                           'extension': self.extension,
+                                                           'verbose': False})
+            version = None
+            for rext in rexts:
+                version = rext['version']                
+            self.version = version.split('.')[0] + '.*'
+            return self.build_resource_extension_dict(extension=self.extension, publisher=self.publisher, version=self.version)
+        except Exception as e:            
+            logger(message=traceback.print_exc())
+            return False
+
+    # http://docs.octopusdeploy.com/display/OD/Azure+Virtual+Machines
+    def build_octopusdeploy_resource_extension(self, *args):        
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.os = self.get_params(key='os', params=arg, default=None)            
+            self.octopus_server_url = self.get_params(key='octopus_server_url', params=arg, default=self.default_octopus_server_url)            
+            self.octopus_api_key = self.get_params(key='octopus_api_key', params=arg, default=self.default_octopus_api_key)            
+            self.octopus_environments = self.get_params(key='octopus_environments', params=arg, default=self.default_octopus_environments)
+            self.octopus_roles = self.get_params(key='octopus_roles', params=arg, default=self.default_octopus_roles)
+            self.octopus_port = self.get_params(key='octopus_port', params=arg, default=self.default_octopus_port)            
+            
+            if self.os == 'Windows':
+                pub_config = dict()
+                pri_config = dict()
+                pub_config_key = 'DSCPublicConfigParameter'
+                pri_config_key = 'DSCPrivateConfigParameter'
+                pub_config['ModulesUrl'] = 'https://octodeploy.blob.core.windows.net/octopus-azure/Octopus.zip'
+                pub_config['SasToken'] = ''
+                pub_config['ConfigurationFunction'] = 'Octopus.ps1\OctopusAzureConfig'
+                pub_config['Properties'] = {'ApiKey': self.octopus_api_key,
+                                            'OctopusServerUrl': self.octopus_server_url,
+                                            'Environments': self.octopus_environments,
+                                            'Roles': self.octopus_roles,
+                                            'ListenPort': int(self.octopus_port)}
+                self.extension = 'DSC'
+                self.publisher = 'Microsoft.Powershell'
+                rexts = self.list_resource_extension_versions({'publisher': self.publisher, 'extension': self.extension, 'verbose': False})
+                version = None
+                for rext in rexts:
+                    version = rext['version']                
+                self.version = version.split('.')[0] + '.*'
+                pub_config['timestamp'] = '%s' % timegm(time.gmtime())
+                
+                
+                pri_config['DataBlobUri'] = None
+                pri_config['Items'] = None
+                rext = self.build_resource_extension_dict(extension=self.extension, publisher=self.publisher, version=self.version,
+                                                          pub_config_key=pub_config_key, pub_config=pub_config,
+                                                          pri_config_key=pri_config_key, pri_config=pri_config)
+            if self.os == 'Linux':
+                logger(pprint.pprint(self.__dict__))
+                logger('%s is not supported on %s' % (inspect.stack()[0][3],
+                                                      self.os))
+                sys.exit(1)
+                
+            return rext
+        except Exception as e:            
+            logger(message=traceback.print_exc())
+            return False
+    
     def build_logcollector_resource_extension(self):
         pass
     
@@ -1948,10 +2042,6 @@ class AzureCloudClass(BaseCloudHarnessClass):
     
     def build_vsremotedebug_resource_extension(self):
         pass
-   
-    def build_bginfo_resource_extension(self):
-        pass
-    
     def build_monitoringagent_resource_extension(self):
         pass
     
@@ -2208,6 +2298,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         rextrs.append(self.build_docker_resource_extension(arg))
                     if extension == 'PuppetEnterpriseAgent':
                         rextrs.append(self.build_puppet_resource_extension(arg))                    
+                    if extension == 'BGInfo':
+                        rextrs.append(self.build_bginfo_resource_extension(arg))
+                    if extension == 'OctopusDeploy':
+                        rextrs.append(self.build_octopusdeploy_resource_extension(arg))
                 self.rextrs = self.build_resource_extensions_xml_from_dict(rextrs=rextrs)
             else:
                 self.rextrs = self.get_params(key='rextrs', params=args, default=None)
