@@ -392,7 +392,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'list_tenants', 'params': [], 'collection': False},              
                {'action': 'list_linked_resources', 'params': [], 'collection': False},              
                {'action': 'list_resource_providers', 'params': [], 'collection': False},
-               {'action': 'list_locations_arm', 'params': [], 'collection': False},         
+               {'action': 'list_locations_arm', 'params': [], 'collection': False},
+               {'action': 'list_virtual_machines_for_resource_group', 'params': ['group'], 'collection': False},
                {'action': 'add_resource_extension', 'params': ['service', 'deployment', 'name', 'extension'], 'collection': False},
                {'action': 'add_role', 'params': ['deployment', 'service', 'os', 'name', 'blob', 'subnet', 'account'], 'collection': False},
                {'action': 'add_data_disk', 'params': ['service', 'deployment', 'name'], 'collection': False},
@@ -425,7 +426,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'create_storage_account', 'params': ['account'], 'collection': False},
                {'action': 'create_role_assignment', 'params': ['role_definition_id'], 'collection': False},
                {'action': 'capture_role', 'params': ['service', 'deployment', 'name', 'blob'], 'collection': False},
-               {'action': 'capture_vm_image', 'params': ['service', 'deployment', 'name', 'blob'], 'collection': False},
+               {'action': 'capture_vm_image', 'params': ['group', 'name'], 'collection': False},
+               {'action': 'capture_virtual_machine', 'params': ['name', 'group'], 'collection': False},
                {'action': 'create_deployment', 'params': ['service', 'deployment', 'name', 'package_url', 'package_config'], 'collection': False},
                {'action': 'create_reserved_ip_address', 'params': ['ipaddr'], 'collection': False},
                {'action': 'create_vm_image', 'params': ['blob', 'os'], 'collection': False},
@@ -470,8 +472,10 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'get_epacls', 'params': ['service', 'deployment', 'name'], 'collection': False},
                {'action': 'get_virtual_network_site', 'params': [], 'collection': False},
                {'action': 'get_resource_group_properties', 'params': ['group'], 'collection': False},
-               {'action': 'get_resource_provider_properties', 'params': [], 'collection': False},               
+               {'action': 'get_virtual_machines_model_properties', 'params': ['name', 'group'], 'collection': False},
+               {'action': 'get_virtual_machines_instance_properties', 'params': ['name', 'group'], 'collection': False},
                {'action': 'generate_signed_blob_url', 'params': ['account', 'container', 'script'], 'collection': False},
+               {'action': 'generalise_virtual_machine', 'params': ['name', 'group'], 'collection': False},
                {'action': 'move_resources', 'params': [], 'collection': False},
                {'action': 'perform_get', 'params': ['path'], 'collection': False},
                {'action': 'perform_put', 'params': ['path', 'body'], 'collection': False},
@@ -647,6 +651,66 @@ class AzureCloudClass(BaseCloudHarnessClass):
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
+
+    def get_virtual_machines_instance_properties(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.api_version = self.get_params(key='api_version', params=arg, default='2015-06-15')
+            self.name = self.get_params(key='name', params=arg, default=None)
+            if isinstance(self.name, list): self.name = self.name[0]
+            self.group = self.get_params(key='group', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+            
+            url = 'https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines/%s/InstanceView?api-version=%s' % (self.subscription_id,
+                                                                                                                                                                  self.group,
+                                                                                                                                                                  self.name,
+                                                                                                                                                                  self.api_version)
+            if self.arm_sess:
+                self.arm_sess.headers.update(self.arm_auth)
+                response = self.arm_sess.get(url)
+                d = json.loads(response.text)
+                return d
+            else:
+                return False
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False                
+
+    def get_virtual_machines_model_properties(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.api_version = self.get_params(key='api_version', params=arg, default='2015-06-15')
+            self.name = self.get_params(key='name', params=arg, default=None)
+            if isinstance(self.name, list): self.name = self.name[0]
+            self.group = self.get_params(key='group', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+            
+            url = 'https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines/%s?api-version=%s' % (self.subscription_id,
+                                                                                                                                                     self.group,
+                                                                                                                                                     self.name,
+                                                                                                                                                     self.api_version)
+            if self.arm_sess:
+                self.arm_sess.headers.update(self.arm_auth)
+                response = self.arm_sess.get(url)
+                d = json.loads(response.text)
+                return d
+            else:
+                return False
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False                
 
     def get_service_principal_id_by_aad_app_name(self, *args):
         try:
@@ -2042,6 +2106,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
     
     def build_vsremotedebug_resource_extension(self):
         pass
+    
     def build_monitoringagent_resource_extension(self):
         pass
     
@@ -2342,6 +2407,81 @@ class AzureCloudClass(BaseCloudHarnessClass):
                     return False
             else:
                 logger('%s: limited to read-only operations' % inspect.stack()[0][3])
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
+
+    def generalise_virtual_machine(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+            
+            self.name = self.get_params(key='name', params=arg, default=None)
+            if isinstance(self.name, list): self.name = self.name[0]
+            self.group = self.get_params(key='group', params=arg, default=None)
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.api_version = self.get_params(key='api_version', params=arg, default='2015-06-15')
+            readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            url = 'https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines/%s/generalize?api-version=%s' % (self.subscription_id,
+                                                                                                                                                                self.group,
+                                                                                                                                                                self.name,
+                                                                                                                                                                self.api_version)
+            if verbose: pprint.pprint(self.__dict__)
+
+            if not readonly:
+                if self.arm_sess:            
+                    self.arm_sess.headers.update({'Content-Type': 'application/json'})           
+                    self.arm_sess.headers.update(self.arm_auth)
+                    response = self.arm_sess.post(url)
+                    return response.__dict__
+                else:
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])    
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False        
+
+    def capture_virtual_machine(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+            
+            self.name = self.get_params(key='name', params=arg, default=None)
+            if isinstance(self.name, list): self.name = self.name[0]
+            self.group = self.get_params(key='group', params=arg, default=None)
+            self.container = self.get_params(key='container', params=arg, default=self.default_storage_container)
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.api_version = self.get_params(key='api_version', params=arg, default='2015-06-15')
+            readonly = self.get_params(key='readonly', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            url = 'https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines/%s/capture?api-version=%s' % (self.subscription_id,
+                                                                                                                                                             self.group,
+                                                                                                                                                             self.name,
+                                                                                                                                                             self.api_version)
+            if verbose: pprint.pprint(self.__dict__)
+
+            d = {'vhdPrefix': 'pslib',
+                 'destinationContainerName': self.container,                 
+                 'overwriteVhds': True}
+            
+            data = json.dumps(d)
+
+            if not readonly:
+                if self.arm_sess:            
+                    self.arm_sess.headers.update({'Content-Type': 'application/json'})           
+                    self.arm_sess.headers.update(self.arm_auth)
+                    response = self.arm_sess.post(url, data)
+                    return response.__dict__
+                else:
+                    return False
+            else:
+                logger('%s: limited to read-only operations' % inspect.stack()[0][3])    
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -3784,10 +3924,37 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 d = json.loads(response.text)
                 return d
             else:
-                return False
+                return Fale
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
+
+    def list_virtual_machines_for_resource_group(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.subscription_id = self.get_params(key='subscription_id', params=arg, default=self.default_subscription_id)
+            self.api_version = self.get_params(key='api_version', params=arg, default='2015-06-15')
+            self.group = self.get_params(key='group', params=arg, default=None)
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            if verbose: pprint.pprint(self.__dict__)
+            
+            url = 'https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualmachines?api-version=%s' % (self.subscription_id,
+                                                                                                                                                  self.group,
+                                                                                                                                                  self.api_version)
+            if self.arm_sess:
+                self.arm_sess.headers.update(self.arm_auth)
+                response = self.arm_sess.get(url)
+                d = json.loads(response.text)
+                return d
+            else:
+                return False
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False        
 
     def list_resources_for_subscription(self, *args):
         try:
