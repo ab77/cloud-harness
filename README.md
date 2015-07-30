@@ -22,6 +22,18 @@ Python wrapper for cloud service provider APIs/SDKs.
 * specify `--readonly` flag to limit operations, which would otherwise perform changes (usually together with `--verbose`)
 * specify `--async` flag to return from calls immediately, without waiting for operation completion
 
+### Supported Resource Extensions
+The following resource extensions are supported (use `--extension <extension> <extension> ... <ext>`):
+* ChefClient (Windows|Linux)
+* CustomScript (Windows|Linux)
+* VMAccessAgent (Windows|Linux)
+* OSPatching (Linux)
+* DockerExtension (Linux)
+* DSC (Windows)
+* PuppetEnterpriseAgent (Windows|Linux)
+* BGInfo (Windows|Linux)
+* OctopusDeploy (Windows)
+
 ### Examples
 Some useful examples to deploy virtual machines and various resource extensions.
 

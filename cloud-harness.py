@@ -752,32 +752,34 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                                                                    'deployment': self.deployment,
                                                                                    'name': self.name,
                                                                                    'verbose': False})['os_virtual_hard_disk']['os'])
-            arg['os'] = self.os
-            rextrs = list()
-            for extension in self.extension:
-                if extension == 'ChefClient':
-                    rextrs.append(self.build_chefclient_resource_extension(arg))                
-                if extension == 'CustomScript':
-                    rextrs.append(self.build_customscript_resource_extension(arg))
-                if extension == 'VMAccessAgent':
-                    rextrs.append(self.build_vmaccess_resource_extension(arg))
-                if extension == 'OSPatching':
-                    rextrs.append(self.build_ospatching_resource_extension(arg))
-                if extension == 'DockerExtension':
-                    rextrs.append(self.build_docker_resource_extension(arg))
-                if extension == 'DSC':
-                    rextrs.append(self.build_dsc_resource_extension(arg))                    
-                if extension == 'PuppetEnterpriseAgent':
-                    rextrs.append(self.build_puppet_resource_extension(arg))                    
-                if extension == 'BGInfo':
-                    rextrs.append(self.build_bginfo_resource_extension(arg))                    
-                if extension == 'OctopusDeploy':
-                    rextrs.append(self.build_octopusdeploy_resource_extension(arg))
-            arg['rextrs'] = self.build_resource_extensions_xml_from_dict(rextrs=rextrs)
+            if self.os:
+                arg['os'] = self.os            
+                rextrs = list()
+                for extension in self.extension:
+                    if extension == 'ChefClient':
+                        rextrs.append(self.build_chefclient_resource_extension(arg))                
+                    if extension == 'CustomScript':
+                        rextrs.append(self.build_customscript_resource_extension(arg))
+                    if extension == 'VMAccessAgent':
+                        rextrs.append(self.build_vmaccess_resource_extension(arg))
+                    if extension == 'OSPatching':
+                        rextrs.append(self.build_ospatching_resource_extension(arg))
+                    if extension == 'DockerExtension':
+                        rextrs.append(self.build_docker_resource_extension(arg))
+                    if extension == 'DSC':
+                        rextrs.append(self.build_dsc_resource_extension(arg))                    
+                    if extension == 'PuppetEnterpriseAgent':
+                        rextrs.append(self.build_puppet_resource_extension(arg))                    
+                    if extension == 'BGInfo':
+                        rextrs.append(self.build_bginfo_resource_extension(arg))                    
+                    if extension == 'OctopusDeploy':
+                        rextrs.append(self.build_octopusdeploy_resource_extension(arg))
+                arg['rextrs'] = self.build_resource_extensions_xml_from_dict(rextrs=rextrs)
 
-            if verbose: pprint.pprint(self.__dict__)
-            
-            return self.update_role(arg)
+                if verbose: pprint.pprint(self.__dict__)
+                return self.update_role(arg)
+            else:
+                return False
         except Exception as e:
             logger(message=traceback.print_exc())
             return False
@@ -2031,16 +2033,25 @@ class AzureCloudClass(BaseCloudHarnessClass):
             arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
             if not arg: return False
 
-            self.extension = 'BGInfo'
-            self.publisher = 'Microsoft.Compute'
-            rexts = self.list_resource_extension_versions({'publisher': self.publisher,
-                                                           'extension': self.extension,
-                                                           'verbose': False})
-            version = None
-            for rext in rexts:
-                version = rext['version']                
-            self.version = version.split('.')[0] + '.*'
-            return self.build_resource_extension_dict(extension=self.extension, publisher=self.publisher, version=self.version)
+            self.os = self.get_params(key='os', params=arg, default=None)            
+
+            if self.os == 'Windows':
+                self.extension = 'BGInfo'
+                self.publisher = 'Microsoft.Compute'
+                rexts = self.list_resource_extension_versions({'publisher': self.publisher,
+                                                               'extension': self.extension,
+                                                               'verbose': False})
+                version = None
+                for rext in rexts:
+                    version = rext['version']                
+                self.version = version.split('.')[0] + '.*'
+                return self.build_resource_extension_dict(extension=self.extension, publisher=self.publisher, version=self.version)
+
+            if self.os == 'Linux':
+                logger(pprint.pprint(self.__dict__))
+                logger('%s is not supported on %s' % (inspect.stack()[0][3],
+                                                      self.os))
+                sys.exit(1)        
         except Exception as e:            
             logger(message=traceback.print_exc())
             return False
