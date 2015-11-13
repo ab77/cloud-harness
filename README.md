@@ -107,6 +107,8 @@ Remember to update `storage_account` in `cloud-harness.py` with the name of the 
     --docker_compose compose.yaml \
     --verbose	
 
+Note, the Docker extension relies on certain pre-requisites, incl. certificates. See [this](http://docs.docker.com/engine/articles/https/) article on how to generate these and don't forget to update the `[DockerExtension]` section in `cloud-harness.conf` afterwards.
+
 ##### Create a Linux virtual machine (role) with a random alpha-numeric password[n2], add `CustomScript` and `ChefClient` extensions:
 
     ./cloud-harness.py azure --action add_role \
