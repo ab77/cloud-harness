@@ -41,6 +41,8 @@ except ImportError:
 try:
     from azure import *
     from azure.servicemanagement import *
+    from azure.common import *
+    from azure.servicemanagement import *
     from azure.storage import AccessPolicy
     from azure.storage.blob import BlobService
     from azure.storage.sharedaccesssignature import SharedAccessPolicy, SharedAccessSignature
@@ -963,7 +965,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return 
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -1037,7 +1039,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return d
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -1070,7 +1072,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             if not readonly:
                 try:
                     return self.sms.add_disk(None, self.label, self.media_link, self.name, self.os)
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -1367,7 +1369,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return d
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -2414,7 +2416,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return 
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -2600,7 +2602,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return 
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -2655,7 +2657,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return 
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -2714,7 +2716,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return 
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -2870,7 +2872,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return 
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -2907,7 +2909,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return 
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -2956,7 +2958,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return 
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -3046,7 +3048,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return 
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -3163,7 +3165,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             if not readonly:
 
-                @retry(WindowsAzureConflictError, tries=5, delay=15, backoff=2, cdata='method=%s()' % inspect.stack()[0][3])
+                @retry(AzureConflictHttpError, tries=5, delay=15, backoff=2, cdata='method=%s()' % inspect.stack()[0][3])
                 def delete_disk_retry():
                     return self.sms.delete_disk(self.disk, delete_vhd=self.delete_vhds)
                 
@@ -3302,7 +3304,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return d
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -3337,7 +3339,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return d
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -3373,7 +3375,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return d
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -3473,7 +3475,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return d
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -3502,7 +3504,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
 
             if not readonly:
 
-                @retry(WindowsAzureConflictError, tries=5, delay=15, backoff=2, cdata='method=%s()' % inspect.stack()[0][3])
+                @retry(AzureConflictHttpError, tries=5, delay=15, backoff=2, cdata='method=%s()' % inspect.stack()[0][3])
                 def delete_data_disk_retry():
                     result = self.sms.delete_data_disk(self.service, self.deployment, self.name,
                                                        self.lun, delete_vhd=False)
@@ -4495,7 +4497,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             
             if verbose: pprint.pprint(self.__dict__)
             
-            @retry(WindowsAzureConflictError, tries=3, delay=10, backoff=2, cdata='method=%s()' % inspect.stack()[0][3])
+            @retry(AzureConflictHttpError, tries=3, delay=10, backoff=2, cdata='method=%s()' % inspect.stack()[0][3])
             def perform_delete_retry():
                 return self.sms.perform_delete(self.path, x_ms_version=self.sms.x_ms_version).__dict__
             
@@ -4516,7 +4518,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             
             if verbose: pprint.pprint(self.__dict__)
             
-            @retry(WindowsAzureConflictError, tries=3, delay=10, backoff=2, cdata='method=%s()' % inspect.stack()[0][3])
+            @retry(AzureConflictHttpError, tries=3, delay=10, backoff=2, cdata='method=%s()' % inspect.stack()[0][3])
             def perform_post_retry():
                 return self.sms.perform_post(self.path, self.body, x_ms_version=self.sms.x_ms_version).__dict__
             
@@ -4538,7 +4540,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             
             if verbose: pprint.pprint(self.__dict__)
 
-            @retry(WindowsAzureConflictError, tries=3, delay=10, backoff=2, cdata='method=%s()' % inspect.stack()[0][3])
+            @retry(AzureConflictHttpError, tries=3, delay=10, backoff=2, cdata='method=%s()' % inspect.stack()[0][3])
             def perform_put_retry():
 
                 def _my_perform_put(self, path, body, x_ms_version=None, content_type=None):
@@ -4555,39 +4557,46 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         Otherwise, self.x_ms_version is used.
                     '''
 
-                    from azure import (
-                        WindowsAzureError,
-                        DEFAULT_HTTP_TIMEOUT,
-                        MANAGEMENT_HOST,
-                        WindowsAzureAsyncOperationError,
-                        _ERROR_ASYNC_OP_FAILURE,
-                        _ERROR_ASYNC_OP_TIMEOUT,
-                        _get_request_body,
-                        _str,
-                        _validate_not_none,
-                        _update_request_uri_query,
-                        )
-                    from azure.http import (
-                        HTTPError,
-                        HTTPRequest,
-                        )
-                    from azure.http.httpclient import _HTTPClient
-                    from azure.servicemanagement import (
+                    from azure.servicemanagement.constants import (
                         AZURE_MANAGEMENT_CERTFILE,
                         AZURE_MANAGEMENT_SUBSCRIPTIONID,
-                        Operation,
-                        _MinidomXmlToObject,
-                        _management_error_handler,
-                        parse_response_for_async_op,
                         X_MS_VERSION,
-                        )
+                        _USER_AGENT_STRING,
+                        DEFAULT_HTTP_TIMEOUT,
+                        MANAGEMENT_HOST,
+                    )
+                    from azure.servicemanagement.models import (
+                        AsynchronousOperationResult,
+                        AzureAsyncOperationHttpError,
+                        Operation,
+                    )
+                    from azure.servicemanagement._common_conversion import (
+                        _str,
+                    )
+                    from azure.servicemanagement._common_error import (
+                        _ERROR_ASYNC_OP_FAILURE,
+                        _ERROR_ASYNC_OP_TIMEOUT,
+                        _general_error_handler,
+                        _validate_not_none,
+                    )
+                    from azure.servicemanagement._common_serialization import (
+                        _get_request_body,
+                    )
+                    from azure.servicemanagement._http import (
+                        HTTPError,
+                        HTTPRequest,
+                    )
+                    from azure.servicemanagement._http.httpclient import _HTTPClient
+                    from azure.servicemanagement._serialization import (
+                        _MinidomXmlToObject,
+                    )
 
                     request = HTTPRequest()
                     request.method = 'PUT'
                     request.host = self.host
                     request.path = path
-                    request.body = _get_request_body(body)        
-                    request.path, request.query = _update_request_uri_query(request)
+                    request.body = _get_request_body(body)
+                    request.path, request.query = self._httpclient._update_request_uri_query(request)
                     if content_type: request.headers.append(('Content-Type', content_type))
                     request.headers = self._update_management_header(request, x_ms_version)
                     response = self._perform_request(request)
@@ -4639,7 +4648,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return d
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -4699,7 +4708,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return d
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -4736,7 +4745,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return d
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -5344,7 +5353,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return 
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -5397,7 +5406,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return 
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -5542,7 +5551,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return d
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -5591,7 +5600,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                 try:
                     return self.sms.update_disk(self.disk, has_operating_system=None, label=self.label,
                                                 media_link=None, name=None, os=None)
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -5716,7 +5725,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return d
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -5802,7 +5811,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return d
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
@@ -5920,7 +5929,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                         return d
                     else:
                         return 
-                except (WindowsAzureConflictError) as e:
+                except (AzureConflictHttpError) as e:
                     logger('%s: operation in progress or resource exists, try again..' % inspect.stack()[0][3])
                     return False
             else:
