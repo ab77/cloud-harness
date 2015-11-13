@@ -12,7 +12,7 @@ Python wrapper for cloud service provider APIs/SDKs.
 * [download](https://manage.windowsazure.com/publishsettings) and save your Azure PublishSettings file with `.publishsettings` extension to the same directory
 * run `./cloud-harness.py azure` for the first time to extract your management certificate and update the config file automatically (or [manually](http://stuartpreston.net/2015/02/retrieving-microsoft-azure-management-certificates-for-use-in-cross-platform-automationprovisioning-tools/) if you wish)
 * set default `location_name` in `cloud-harness.conf` config file (e.g. East US), run `python ./cloud-harness.py azure` for the default action `list_locations`
-* set other configuration properties as required in `cloud-harness.conf` config file (e.g. `storage_account`)
+* set other configuration properties as required in `cloud-harness.conf` config file (e.g. `storage_account` and `service_certificate`)
 * to use the new Azure Resource Management (ARM) APIs, you'll need to follow [these](http://blog.davidebbo.com/2014/12/azure-service-principal.html) steps. 
 
 ### General Usage
