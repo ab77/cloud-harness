@@ -43,6 +43,8 @@ Some useful examples to deploy virtual machines and various resource extensions.
     --account myuniquestorageaccountname01 \
     --verbose
 
+Remember to update `storage_account` in `cloud-harness.py` with the name of the storage account you've just created.
+
 ##### Create a new hosted service (name must be unique within `cloudapp.net` domain, check with `--action check_storage_account_name_availability`):
 
     ./cloud-harness.py azure --action create_hosted_service \
