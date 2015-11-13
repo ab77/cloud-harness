@@ -7,7 +7,7 @@ Python wrapper for cloud service provider APIs/SDKs.
 	- [Azure Resource Management APIs](https://msdn.microsoft.com/en-us/library/azure/dn948464.aspx)
 
 ### Installation and Configuration
-* from a working Python environment, run `pip install azure && /opt && git clone https://github.com/ab77/cloud-harness.git && cd ./cloud-harness`
+* from a working Python environment, run `pip install azure && git clone https://github.com/ab77/cloud-harness.git /opt/cloud-harness && cd /opt/cloud-harness`
 * copy `cloud-harness.sample.conf` to `cloud-harness.conf`
 * [download](https://manage.windowsazure.com/publishsettings) and save your Azure PublishSettings file with `.publishsettings` extension to the same directory
 * run `./cloud-harness.py azure` for the first time to extract your management certificate and update the config file automatically (or [manually](http://stuartpreston.net/2015/02/retrieving-microsoft-azure-management-certificates-for-use-in-cross-platform-automationprovisioning-tools/) if you wish)
