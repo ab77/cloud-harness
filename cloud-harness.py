@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 '''
-Version: 0.1
+Version: 0.2
 Author: Anton Belodedenko (anton@belodedenko.me)
 Date: 16/06/2015
 Name: Cloud Harness
