@@ -41,7 +41,8 @@ except ImportError:
 try:
     from azure import *
     from azure.servicemanagement import *
-    from azure.storage import AccessPolicy, BlobService
+    from azure.storage import AccessPolicy
+    from azure.storage.blob import BlobService
     from azure.storage.sharedaccesssignature import SharedAccessPolicy, SharedAccessSignature
 except ImportError:
     sys.stderr.write('ERROR: Python module "azure" not found, please run "pip install azure".\n')
