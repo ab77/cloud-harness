@@ -3,5 +3,5 @@ apt_upgrade: true
 runcmd:
   - apt-get -y install git
   - printf 'sudo rm -rf /opt/WALinuxAgent; sudo git clone https://github.com/Azure/WALinuxAgent.git /opt/WALinuxAgent; sudo /opt/WALinuxAgent/get-agent.py; sudo service walinuxagent restart' | at now
-  - git clone https://github.com/ab77/netflix-proxy /opt/netflix-proxy && /opt/netflix-proxy/build.sh
+  - git clone https://github.com/ab77/netflix-proxy /opt/netflix-proxy && /opt/netflix-proxy/build.sh -c 127.0.0.1 -i 0 -d 0
   - docker restart bind
