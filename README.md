@@ -148,7 +148,7 @@ Remember to update `storage_account` in `cloud-harness.py` with the name of the 
 	--extension CustomScript \
     --verbose
 
-##### Add `ChefClient` and `DSC` (Desired State Configuration) extensions to the Windows virtual machine[n6]:
+##### Add `ChefClient` and `DSC` (Desired State Configuration) extensions to the Windows virtual machine[n7]:
 
     ./cloud-harness.py azure --action add_resource_extension \
     --service my-hosted-service \
@@ -230,4 +230,4 @@ Lots, including:
 
 [n6] `Docker` is secured by default with SSL, using a server certificate signed by a private CA.
 
-[n6] `DSC` configuration archive can be compiled using PowerShell, run `Publish-AzureVMDscConfiguration .\MyConfiguration.ps1 -ConfigurationArchivePath .\MyConfiguration.ps1.zip`
+[n7] `DSC` configuration archive can be compiled using PowerShell, run `Publish-AzureVMDscConfiguration .\MyConfiguration.ps1 -ConfigurationArchivePath .\MyConfiguration.ps1.zip`
