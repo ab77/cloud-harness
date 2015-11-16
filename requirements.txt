@@ -1,0 +1,6 @@
+requests
+azure
+xmltodict
+pyopenssl
+pycrypto
+pyyaml
