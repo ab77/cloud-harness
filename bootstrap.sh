@@ -11,12 +11,3 @@ sudo cat $temp_script | sudo sed 's/^M$//' - | sudo sed $'s/\r$//' - > $bootstra
 sudo chmod +x $bootstrap_script && \
 printf 'Executing $bootstrap_script...\n'
 sudo $bootstrap_script
-
-# install Git and update WAAgent
-printf 'Scheduling WAAgent upgrade...\n'
-printf 'sudo rm -rf ./WALinuxAgent; \
-sudo apt-get -y install git; \
-sudo git clone https://github.com/Azure/WALinuxAgent.git; \
-sudo ./WALinuxAgent/get-agent.py; \
-sudo service walinuxagent restart; \
-sudo waagent -version' | at now
