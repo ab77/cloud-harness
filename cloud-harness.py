@@ -477,6 +477,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
                {'action': 'get_resource_group_properties', 'params': ['group'], 'collection': False},
                {'action': 'get_virtual_machines_model_properties', 'params': ['name', 'group'], 'collection': False},
                {'action': 'get_virtual_machines_instance_properties', 'params': ['name', 'group'], 'collection': False},
+               {'action': 'get_autoscale_settings_for_role', 'params': ['service', 'availset'], 'collection': False},
                {'action': 'generate_signed_blob_url', 'params': ['account', 'container', 'script'], 'collection': False},
                {'action': 'generalise_virtual_machine', 'params': ['name', 'group'], 'collection': False},
                {'action': 'move_resources', 'params': [], 'collection': False},
@@ -4434,8 +4435,8 @@ class AzureCloudClass(BaseCloudHarnessClass):
             verbose = self.get_params(key='verbose', params=arg, default=None)
 
             path = '/%s/services/hostedservices/%s/deployments/%s' % (self.subscription_id,
-                                                                                 self.service,
-                                                                                 self.deployment)
+                                                                      self.service,
+                                                                      self.deployment)
             if verbose: pprint.pprint(self.__dict__)
             
             response = self.perform_get(path=path, verbose=False)
@@ -4445,6 +4446,30 @@ class AzureCloudClass(BaseCloudHarnessClass):
         except Exception as e:
             logger(message=traceback.print_exc())
             return False        
+
+    def get_autoscale_settings_for_role(self, *args):
+        try:
+            if not args: return False
+            arg = self.verify_params(method=inspect.stack()[0][3], params=args[0])
+            if not arg: return False
+
+            self.service = self.get_params(key='service', params=arg, default=None)
+            self.availset = self.get_params(key='availset', params=arg, default=None)
+            self.sms.x_ms_version = '2013-10-01'
+            verbose = self.get_params(key='verbose', params=arg, default=None)
+
+            path = '/%s/services/monitoring/autoscalesettings?resourceId=/virtualmachines/%s/availabilitySets/%s' % (self.subscription_id,
+                                                                                                                     self.service,
+                                                                                                                     self.availset)
+            if verbose: pprint.pprint(self.__dict__)
+            
+            response = self.perform_get(path=path, verbose=False)
+            if response:                
+                if 'AutoscaleSetting' in xmltodict.parse(response['body']):
+                    return xmltodict.parse(response['body'])['AutoscaleSetting']           
+        except Exception as e:
+            logger(message=traceback.print_exc())
+            return False
 
     def get_virtual_network_site(self, *args):
         try:
