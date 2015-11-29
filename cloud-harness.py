@@ -4447,6 +4447,7 @@ class AzureCloudClass(BaseCloudHarnessClass):
             logger(message=traceback.print_exc())
             return False        
 
+    # https://msdn.microsoft.com/en-us/library/azure/dn510381.aspx
     def get_autoscale_settings_for_role(self, *args):
         try:
             if not args: return False
