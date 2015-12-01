@@ -549,11 +549,19 @@ class AzureCloudClass(BaseCloudHarnessClass):
                                     'Name': 'SSH',
                                     'Port': str(randint(49152,65535)),
                                     'Protocol': 'tcp'},
+                                   {'LocalPort': '80',
+                                    'Name': 'HTTP',
+                                    'Port': str(randint(49152,65535)),
+                                    'Protocol': 'tcp'},
+                                   {'LocalPort': '443',
+                                    'Name': 'HTTPS',
+                                    'Port': str(randint(49152,65535)),
+                                    'Protocol': 'tcp'},									
                                    {'LocalPort': '2376',
                                     'Name': 'Docker-SSL',
                                     'Port': str(randint(49152,65535)),
-                                    'Protocol': 'tcp'}]}
-    
+                                    'Protocol': 'tcp'}]} 
+   
     default_algorithm = 'SHA1'
     default_chef_autoupdate_client = True
     default_chef_delete_config = False
